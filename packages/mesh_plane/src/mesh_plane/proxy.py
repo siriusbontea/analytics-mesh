@@ -41,6 +41,12 @@ class NodeProxy:
         suffix = "/models?probe=true" if probe else "/models"
         return self._get_json(endpoint, suffix)
 
+    def assist_nl2sql(self, endpoint: str, payload: dict[str, object]) -> dict[str, object]:
+        response = httpx.post(f"{endpoint.rstrip('/')}/assist/nl2sql", json=payload, timeout=self.timeout)
+        if response.status_code >= 400:
+            raise HTTPException(status_code=response.status_code, detail=_json_or_text(response))
+        return response.json()
+
     def assist_explain(self, endpoint: str, payload: dict[str, object]) -> dict[str, object]:
         response = httpx.post(f"{endpoint.rstrip('/')}/assist/explain", json=payload, timeout=self.timeout)
         if response.status_code >= 400:

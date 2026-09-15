@@ -1,0 +1,31 @@
+# Example node with a read-only Postgres connector.
+# Start the documented compose service, then:
+#   MESH_POSTGRES_DSN=postgresql://mesh:mesh@127.0.0.1:5432/mesh \
+#     uv run mesh serve --config configs/examples/node-postgres.yaml
+node_id: postgres-dev
+artifact_dir: var/postgres-dev/artifacts
+receipt_db: var/postgres-dev/receipts.sqlite
+identity_key_path: var/postgres-dev.identity.pem
+listen_host: 127.0.0.1
+listen_port: 8083
+policy_path: configs/examples/policy.yaml
+connectors:
+  - id: local_files
+    type: local_files
+    root: data/samples
+    labels: [personal]
+  - id: postgres
+    type: postgres
+    dsn_env: MESH_POSTGRES_DSN
+    schemas: [public]
+    labels: [work]
+analytics_dir: analytics
+limits:
+  default_row_limit: 10000
+  max_row_limit: 100000
+  query_timeout_seconds: 30
+artifacts:
+  max_bytes_per_file: 104857600
+  max_total_bytes: 1073741824
+  retention_days: 7
+  max_files: 200

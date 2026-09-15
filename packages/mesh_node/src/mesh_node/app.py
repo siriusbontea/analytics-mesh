@@ -7,9 +7,15 @@ from pathlib import Path
 import httpx
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
-from pydantic import BaseModel
 
-from mesh_common.schemas import AnalyticRunRequest, QueryRequest, QueryResponse
+from mesh_common.policy import PolicyDenied
+from mesh_common.schemas import (
+    AnalyticRunRequest,
+    AssistExplainRequest,
+    AssistNl2SqlRequest,
+    QueryRequest,
+    QueryResponse,
+)
 from mesh_common.web import mount_ui
 from mesh_node.config import NodeConfig
 from mesh_node.pairing import register_with_plane
@@ -17,10 +23,6 @@ from mesh_node.runtime import NodeRuntime
 
 __version__ = "0.1.0"
 logger = logging.getLogger("mesh_node")
-
-
-class AssistRequest(BaseModel):
-    artifact_id: str | None = None
 
 
 def create_app(config: NodeConfig | None = None) -> FastAPI:
@@ -61,7 +63,16 @@ def create_app(config: NodeConfig | None = None) -> FastAPI:
 
     @app.post("/query")
     def run_query(request: QueryRequest) -> QueryResponse:
-        result = runtime.run_query(request.sql, request.principal, request.row_limit)
+        try:
+            result = runtime.run_query(
+                request.sql,
+                request.principal,
+                request.row_limit,
+                assist_model_provider=request.assist_model_provider,
+                assist_model_id=request.assist_model_id,
+            )
+        except PolicyDenied as exc:
+            raise HTTPException(status_code=403, detail=_policy_detail(exc)) from exc
         if result.receipt.status == "failed":
             raise HTTPException(
                 status_code=400,
@@ -79,6 +90,8 @@ def create_app(config: NodeConfig | None = None) -> FastAPI:
                 version=request.version,
                 params=request.params,
             )
+        except PolicyDenied as exc:
+            raise HTTPException(status_code=403, detail=_policy_detail(exc)) from exc
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=f"unknown analytic: {exc.args[0]}") from exc
         if result.receipt.status == "failed":
@@ -110,9 +123,19 @@ def create_app(config: NodeConfig | None = None) -> FastAPI:
     def models(probe: bool = False) -> dict[str, object]:
         return runtime.models_status(probe=probe)
 
+    @app.post("/assist/nl2sql")
+    def assist_nl2sql(request: AssistNl2SqlRequest) -> dict[str, object]:
+        try:
+            return runtime.propose_sql(request.question, request.principal)
+        except PolicyDenied as exc:
+            raise HTTPException(status_code=403, detail=_policy_detail(exc)) from exc
+
     @app.post("/assist/explain")
-    def assist_explain(request: AssistRequest) -> dict[str, object]:
-        return runtime.explain_stub(request.artifact_id)
+    def assist_explain(request: AssistExplainRequest) -> dict[str, object]:
+        try:
+            return runtime.explain_result(request.artifact_id, request.principal)
+        except PolicyDenied as exc:
+            raise HTTPException(status_code=403, detail=_policy_detail(exc)) from exc
 
     @app.get("/receipts/chain")
     def receipt_chain() -> dict[str, object]:
@@ -126,3 +149,10 @@ def create_app(config: NodeConfig | None = None) -> FastAPI:
         return receipt.model_dump(mode="json")
 
     return app
+
+
+def _policy_detail(exc: PolicyDenied) -> dict[str, object]:
+    detail: dict[str, object] = {"message": exc.reason}
+    if exc.receipt is not None:
+        detail["receipt"] = exc.receipt.model_dump(mode="json")
+    return detail

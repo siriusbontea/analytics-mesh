@@ -6,6 +6,7 @@ requires-python = ">=3.12"
 dependencies = [
     "mesh-common",
     "mesh-connector-local-files",
+    "mesh-connector-postgres",
     "mesh-engine-duckdb",
     "fastapi>=0.115",
     "uvicorn[standard]>=0.32",

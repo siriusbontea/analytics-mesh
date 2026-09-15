@@ -93,7 +93,13 @@ def create_app(config: PlaneConfig | None = None, proxy: NodeProxy | None = None
             sql_hash=sha256_text(request.sql.strip()),
             invoke=lambda endpoint: node_proxy.run_query(
                 endpoint,
-                QueryRequest(sql=request.sql, row_limit=request.row_limit, principal=request.principal),
+                QueryRequest(
+                    sql=request.sql,
+                    row_limit=request.row_limit,
+                    principal=request.principal,
+                    assist_model_provider=request.assist_model_provider,
+                    assist_model_id=request.assist_model_id,
+                ),
             ),
         )
 
@@ -127,6 +133,11 @@ def create_app(config: PlaneConfig | None = None, proxy: NodeProxy | None = None
     def node_models(node_id: str, probe: bool = False) -> dict[str, object]:
         node = _require_node(store, node_id)
         return node_proxy.models_status(node.endpoint, probe=probe)
+
+    @app.post("/nodes/{node_id}/assist/nl2sql")
+    def node_nl2sql(node_id: str, payload: dict[str, object]) -> dict[str, object]:
+        node = _require_node(store, node_id)
+        return node_proxy.assist_nl2sql(node.endpoint, payload)
 
     @app.post("/nodes/{node_id}/assist/explain")
     def node_assist(node_id: str, payload: dict[str, object]) -> dict[str, object]:

@@ -23,6 +23,7 @@ def test_cli_help():
     assert "pair" in result.stdout
     assert "jobs" in result.stdout
     assert "analytics" in result.stdout
+    assert "assist" in result.stdout
 
 
 def test_cli_query_and_receipt(tmp_path: Path, data_dir: Path):

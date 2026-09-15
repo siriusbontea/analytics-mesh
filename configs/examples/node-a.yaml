@@ -11,6 +11,7 @@ connectors:
     root: data/samples
     labels: [personal]
 analytics_dir: analytics
+policy_path: configs/examples/policy.yaml
 limits:
   default_row_limit: 10000
   max_row_limit: 100000

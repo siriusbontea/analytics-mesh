@@ -10,6 +10,7 @@ dependencies = [
     "mesh-plane",
     "mesh-client",
     "mesh-connector-local-files",
+    "mesh-connector-postgres",
     "mesh-engine-duckdb",
 ]
 
@@ -27,6 +28,7 @@ members = [
     "packages/mesh_plane",
     "packages/mesh_client",
     "plugins/connectors/local_files",
+    "plugins/connectors/postgres",
     "plugins/engines/duckdb_engine",
 ]
 
@@ -36,6 +38,7 @@ mesh-node = { workspace = true }
 mesh-plane = { workspace = true }
 mesh-client = { workspace = true }
 mesh-connector-local-files = { workspace = true }
+mesh-connector-postgres = { workspace = true }
 mesh-engine-duckdb = { workspace = true }
 
 [dependency-groups]
@@ -48,3 +51,6 @@ dev = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+markers = [
+    "integration: optional live Postgres (MESH_POSTGRES_DSN or testcontainers)",
+]

@@ -47,6 +47,15 @@
 
 **Exit:** Registry load and run-by-id tests pass; UI/API smoke; analytics work with zero LLM.
 
-## 4. Not in M3
+## 4. M4 tasks (implemented)
 
-YAML policy engine, Postgres connector, NL→SQL with confirm (M4), MCP + Polars (M5), federated learning, Hermes learning loop, messaging gateways.
+1. YAML policy allowlists (`PolicyEngine` + `configs/examples/policy.yaml`): principals, connectors, analytics, nodes, row/time caps, `local_only` vs `allow_frontier`. Enforced on `run_query` / `run_analytic` / assist.
+2. Artifact store caps (`artifacts:` on the node): per-file and total size, retention days, max files. Receipt hash chain is unchanged and not pruned.
+3. Read-only Postgres connector plugin + example config + docker-compose service. Tests: SQL/config unit tests; optional `@pytest.mark.integration`.
+4. NL→SQL assist (`POST /assist/nl2sql`, `mesh assist --question`): propose only; `--confirm-run` / UI confirm required to execute. Explain assist uses auxiliary (local preferred). Receipts record `model_provider` / `model_id` when assist is used.
+
+**Exit:** Policy denials 403; NL→SQL never auto-runs; `uv run pytest` green.
+
+## 5. Not in M4
+
+MCP + Polars (M5), federated learning, Hermes learning loop, messaging gateways, full OPA deployment.

@@ -193,6 +193,7 @@ def test_ui_is_served(tmp_path: Path, data_dir: Path):
         assert "text/html" in response.headers["content-type"]
         assert "Analytics Mesh" in response.text
         assert "analytic" in response.text.lower()
+        assert "confirm and run proposed sql" in response.text.lower()
 
 
 def test_bad_sql_writes_failed_receipt(tmp_path: Path, data_dir: Path):

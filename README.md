@@ -2,7 +2,7 @@
 
 Query-first local analytics. Point a node at a directory of CSV, Parquet, or JSON files, run sandboxed DuckDB SQL, and get a Parquet artifact plus a hash-chained receipt. No LLM is required.
 
-M1 is a **single node** on one machine. M2 adds a thin **control plane** that registers nodes and routes `run_query` to a target node. The plane stores job metadata and pointers only — not source tables. M3 adds a **versioned analytic registry**, a **minimal web UI**, and optional **OpenAI-compatible model config**. Analytics still work with **zero** LLM configured.
+M1 is a **single node** on one machine. M2 adds a thin **control plane** that registers nodes and routes `run_query` to a target node. The plane stores job metadata and pointers only — not source tables. M3 adds a **versioned analytic registry**, a **minimal web UI**, and optional **OpenAI-compatible model config**. M4 adds **YAML policy allowlists**, **artifact retention/size caps**, a **read-only Postgres connector**, and optional **NL→SQL assist** that never auto-executes. Analytics still work with **zero** LLM configured.
 
 ## Requirements
 
@@ -113,11 +113,13 @@ uv run pytest
 packages/mesh_common/     schemas, hash-chained receipts, analytic registry, OpenAI-compatible LLM client, web UI
 packages/mesh_node/       FastAPI node: health, connectors, analytics, query, results, receipts, models, /ui
 packages/mesh_plane/      thin control plane: node registry, jobs, proxy run_query / run_analytic, /ui
-packages/mesh_client/     CLI: serve / plane / pair / nodes / jobs / query / analytics / receipt
+packages/mesh_client/     CLI: serve / plane / pair / nodes / jobs / query / analytics / assist / receipt
 plugins/connectors/local_files/
+plugins/connectors/postgres/
 plugins/engines/duckdb_engine/
 analytics/                versioned YAML + SQL analytics (scanned from node `analytics_dir`)
-configs/examples/         node.yaml, node-a.yaml, node-b.yaml, plane.yaml, models.yaml
+configs/examples/         node.yaml, policy.yaml, models.yaml, node-postgres.yaml, plane.yaml
+docker-compose.yml        optional Postgres for the read-only connector
 scripts/two-node-demo.sh  localhost two-node walkthrough
 tests/
 ```
@@ -133,11 +135,12 @@ tests/
 | GET | `/connectors` | Connector ids, versions, discovered tables |
 | GET | `/analytics` | Registered analytics (id, semver, engine, SQL) |
 | POST | `/analytics/run` | Run by `analytic_id` (optional `version`) |
-| POST | `/query` | Sandboxed SQL + row/time limits |
+| POST | `/query` | Sandboxed SQL + row/time limits (policy-gated) |
 | GET | `/results/{artifact_id}` | Parquet download |
 | GET | `/results/{artifact_id}/preview` | JSON table preview |
 | GET | `/models` | Provider slots; `?probe=true` hits `/v1/models` if configured |
-| POST | `/assist/explain` | Stub assist hook (no live model required) |
+| POST | `/assist/nl2sql` | Propose SQL from a question (never executes) |
+| POST | `/assist/explain` | Optional explain of a capped preview (auxiliary model) |
 | GET | `/receipts/{receipt_id}` | Receipt record |
 | GET | `/receipts/chain` | Hash-chain verification |
 
@@ -150,6 +153,8 @@ tests/
 | POST | `/nodes/register` | Pair a node (token + Ed25519 signature) |
 | GET | `/nodes` | Node directory |
 | GET | `/nodes/{node_id}/analytics` | Proxy `list_analytics` |
+| POST | `/nodes/{node_id}/assist/nl2sql` | Proxy NL→SQL propose (never executes) |
+| POST | `/nodes/{node_id}/assist/explain` | Proxy explain assist |
 | POST | `/query` | Create a job and proxy `run_query` to `node_id` |
 | POST | `/analytics/run` | Create a job and proxy `run_analytic` to `node_id` |
 | GET | `/jobs` | Job records (metadata + pointers) |
@@ -196,13 +201,70 @@ The same static page is served from **both** the node and the plane:
 | Node (`mesh serve`) | http://127.0.0.1:8080/ui | Talks to that node only |
 | Plane (`mesh plane`) | http://127.0.0.1:8090/ui | Pick a registered node, then run |
 
-Pick an analytic or paste SQL, view the result table, download the artifact, and read the receipt. There is no decision-case workflow. The “Explain result” button is an M3 stub: it does not call a model, and query/analytic receipts leave `model_provider` / `model_id` empty unless an assist path is actually used.
+Pick an analytic or paste SQL, view the result table, download the artifact, and read the receipt. There is no decision-case workflow. Use **Propose SQL** then **Confirm and run proposed SQL** for NL→SQL; the propose step never executes.
 
 ### Models (optional)
 
 `configs/examples/models.yaml` is the Hermes-inspired slot shape: `main`, `auxiliary`, `fallback`, plus `policy.default_mode: local_only`. One OpenAI-compatible client talks to local (Ollama / LM Studio / vLLM) and frontier (`base_url` + `model`). Point a node at it with `models_path: configs/examples/models.yaml`, or copy the slots under `models:`.
 
 Analytics never require this file. `GET /models?probe=true` optionally calls `{base_url}/models`. Do not put API keys in YAML; use `api_key_env`.
+
+## M4 — policy, artifacts, Postgres, NL→SQL
+
+### Policy file
+
+Example nodes point at `configs/examples/policy.yaml`. If `policy_path` is omitted, the node allows every principal (M1–M3 behavior). The YAML engine implements `PolicyEngine.authorize()` so OPA/Cedar can replace it later without changing `run_query` / `run_analytic` / assist call sites.
+
+```yaml
+deny_unknown_principals: true
+principals:
+  local:
+    allow_adhoc_sql: true
+    allow_assist: true
+    connectors: ["*"]      # or explicit connector ids
+    analytics: ["*"]       # or explicit analytic ids
+    nodes: ["*"]           # or explicit node ids
+    max_row_limit: 10000
+    query_timeout_seconds: 30
+    model_mode: local_only # or allow_frontier
+```
+
+`model_mode: local_only` blocks frontier NL→SQL / explain. `allow_frontier` may send schema + question + a capped preview only — never full source tables. Denied `run_*` / assist calls return HTTP 403 and append a failed receipt.
+
+### Artifact store
+
+Caps live under `artifacts:` on the node (defaults: 100 MiB per file, 1 GiB total, 7-day retention, 200 files). Oversize results fail the query; older parquet + sidecar JSON pairs are pruned. **Receipts stay on the node SQLite hash chain** and are never deleted by this store.
+
+### Postgres connector (read-only)
+
+Plugin: `plugins/connectors/postgres`. Sessions set `default_transaction_read_only`. Example:
+
+```yaml
+- id: postgres
+  type: postgres
+  dsn_env: MESH_POSTGRES_DSN
+  schemas: [public]
+```
+
+```bash
+docker compose up -d postgres
+export MESH_POSTGRES_DSN=postgresql://mesh:mesh@127.0.0.1:5432/mesh
+uv run mesh serve --config configs/examples/node-postgres.yaml
+```
+
+Unit tests cover SQL generation and connection config. Live discover/scan is `@pytest.mark.integration` (uses `MESH_POSTGRES_DSN`, or testcontainers if installed; otherwise skipped).
+
+### NL→SQL confirm flow
+
+```bash
+uv run mesh assist --question "Which product sold the most?"
+# prints proposed SQL only
+uv run mesh assist --question "Which product sold the most?" --confirm-run
+```
+
+`--confirm-run` is required to execute. The web UI has the same two-step **Propose SQL** / **Confirm and run proposed SQL** buttons. `/assist/nl2sql` never calls the engine. When a confirmed run uses a proposal, the query receipt records `model_provider` / `model_id`. Explain assist prefers the auxiliary (local) slot and a capped preview.
+
+If no model is configured, assist returns a clear error and analytics still work.
 
 ## Docs
 

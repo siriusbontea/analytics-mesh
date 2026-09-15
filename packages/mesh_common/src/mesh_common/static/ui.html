@@ -93,6 +93,18 @@
   </section>
 
   <section>
+    <h2>NL → SQL assist (optional)</h2>
+    <p class="muted">Proposes sandboxed SQL from a question. Nothing runs until you confirm.</p>
+    <label for="question">Question</label>
+    <textarea id="question" placeholder="Which product sold the most?"></textarea>
+    <div class="row">
+      <button id="proposeBtn" type="button">Propose SQL</button>
+      <button id="confirmSqlBtn" class="secondary" type="button" disabled>Confirm and run proposed SQL</button>
+    </div>
+    <p id="proposeStatus" class="muted">Assist never auto-executes SQL in v1/M4.</p>
+  </section>
+
+  <section>
     <h2>Run</h2>
     <div class="row">
       <div>
@@ -121,7 +133,7 @@
     <div style="overflow:auto"><table id="resultTable"></table></div>
     <p><a id="downloadLink" class="hidden" href="#">Download Parquet artifact</a></p>
     <button id="assistBtn" class="secondary" type="button" disabled>Explain result (optional assist)</button>
-    <p id="assistStatus" class="muted">Assist is a stub in M3. Core runs never call a model.</p>
+    <p id="assistStatus" class="muted">Explain uses the auxiliary model when configured (local preferred). Core runs never call a model.</p>
   </section>
 
   <section>
@@ -130,7 +142,7 @@
   </section>
 
   <script>
-    const state = { kind: "unknown", nodeId: null, last: null };
+    const state = { kind: "unknown", nodeId: null, last: null, proposed: null };
 
     const $ = (id) => document.getElementById(id);
 
@@ -207,7 +219,7 @@
         if (!data.configured) {
           $("modelsStatus").textContent = "No LLM configured. Analytics still work.";
         } else {
-          $("modelsStatus").textContent = "Optional model: " + data.main.provider + " / " + data.main.model + " (assist stub only)";
+          $("modelsStatus").textContent = "Optional model: " + data.main.provider + " / " + data.main.model + " (NL→SQL propose only; confirm before run)";
         }
       } catch (err) {
         $("modelsStatus").textContent = "Model status unavailable: " + err.message;
@@ -241,13 +253,13 @@
       table.appendChild(body);
     }
 
-    async function run() {
+    async function run(assistOverride) {
       setStatus($("runStatus"), "Running…");
       $("assistBtn").disabled = true;
       try {
         const kind = $("kind").value;
         let body;
-        if (kind === "analytic") {
+        if (kind === "analytic" && !assistOverride) {
           const payload = { analytic_id: $("analytic").value, principal: "web" };
           if (state.kind === "plane") payload.node_id = currentNode();
           body = await api("/analytics/run", {
@@ -256,7 +268,11 @@
             body: JSON.stringify(payload),
           });
         } else {
-          const payload = { sql: $("sql").value, principal: "web" };
+          const payload = { sql: (assistOverride && assistOverride.sql) || $("sql").value, principal: "web" };
+          if (assistOverride) {
+            payload.assist_model_provider = assistOverride.assist_model_provider;
+            payload.assist_model_id = assistOverride.assist_model_id;
+          }
           if (state.kind === "plane") payload.node_id = currentNode();
           body = await api("/query", {
             method: "POST",
@@ -290,13 +306,63 @@
       }
     }
 
+    async function proposeSql() {
+      const question = $("question").value.trim();
+      if (!question) {
+        setStatus($("proposeStatus"), "Enter a question first.", "status err");
+        return;
+      }
+      $("confirmSqlBtn").disabled = true;
+      state.proposed = null;
+      setStatus($("proposeStatus"), "Proposing SQL (not running)…");
+      try {
+        const payload = { question, principal: "web" };
+        let path = "/assist/nl2sql";
+        if (state.kind === "plane") {
+          path = "/nodes/" + encodeURIComponent(currentNode()) + "/assist/nl2sql";
+        }
+        const body = await api(path, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!body.used || !body.sql) {
+          setStatus($("proposeStatus"), body.message || "No model configured; SQL was not proposed.", "status err");
+          return;
+        }
+        state.proposed = body;
+        $("kind").value = "sql";
+        $("analyticWrap").classList.add("hidden");
+        $("sqlWrap").classList.remove("hidden");
+        $("sql").value = body.sql;
+        $("confirmSqlBtn").disabled = false;
+        setStatus($("proposeStatus"), "Proposed SQL only. Review it, then confirm to run. Model: " + body.model_provider + " / " + body.model_id, "status ok");
+      } catch (err) {
+        setStatus($("proposeStatus"), err.message, "status err");
+      }
+    }
+
+    async function confirmProposedSql() {
+      if (!state.proposed || !state.proposed.sql) {
+        setStatus($("proposeStatus"), "Propose SQL first.", "status err");
+        return;
+      }
+      $("kind").value = "sql";
+      $("sql").value = state.proposed.sql;
+      await run({
+        sql: state.proposed.sql,
+        assist_model_provider: state.proposed.model_provider,
+        assist_model_id: state.proposed.model_id,
+      });
+    }
+
     async function explain() {
       if (!state.last || !state.last.artifact) {
         setStatus($("assistStatus"), "Run a query first.", "status err");
         return;
       }
       try {
-        const payload = { artifact_id: state.last.artifact.artifact_id };
+        const payload = { artifact_id: state.last.artifact.artifact_id, principal: "web" };
         let path = "/assist/explain";
         if (state.kind === "plane") {
           path = "/nodes/" + encodeURIComponent(currentNode()) + "/assist/explain";
@@ -309,7 +375,7 @@
         if (!body.used) {
           setStatus($("assistStatus"), body.message || "No model configured; receipt left model fields empty.");
         } else {
-          setStatus($("assistStatus"), "Assist used " + body.model_provider + " / " + body.model_id + " (not applied to the query receipt).");
+          setStatus($("assistStatus"), (body.explanation || "") + " · " + body.model_provider + " / " + body.model_id);
         }
       } catch (err) {
         setStatus($("assistStatus"), err.message, "status err");
@@ -325,7 +391,9 @@
       await loadAnalytics();
       await loadModels();
     });
-    $("runBtn").addEventListener("click", run);
+    $("runBtn").addEventListener("click", () => run());
+    $("proposeBtn").addEventListener("click", proposeSql);
+    $("confirmSqlBtn").addEventListener("click", confirmProposedSql);
     $("assistBtn").addEventListener("click", explain);
 
     (async function init() {
