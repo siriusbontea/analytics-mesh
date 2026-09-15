@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from mesh_common.policy import load_policy
 from mesh_node.config import load_config
 from mesh_plane.config import load_config as load_plane_config
 
@@ -21,6 +22,20 @@ def test_example_node_configs_point_at_separate_data():
     assert node_a.plane is not None and node_b.plane is not None
     assert node_a.analytics_dir == node_b.analytics_dir
     assert (REPO / "analytics/examples/top_products.yaml").is_file()
+    assert node_a.policy_path == node_b.policy_path
+    assert node_a.policy_path is not None
+    assert node_a.policy_path.name == "policy.yaml"
+
+
+def test_example_policy_and_postgres_config_load():
+    policy = load_policy(REPO / "configs/examples/policy.yaml")
+    assert policy.authorize(principal="local", action="run_query", node_id="local-dev").allowed is True
+    node = load_config(REPO / "configs/examples/node-postgres.yaml")
+    types = [item.type for item in node.connectors]
+    assert "postgres" in types
+    pg = next(item for item in node.connectors if item.type == "postgres")
+    assert pg.dsn_env == "MESH_POSTGRES_DSN"
+    assert node.artifacts.max_files == 200
 
 
 def test_example_plane_config_loads():

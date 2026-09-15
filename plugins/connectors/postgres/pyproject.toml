@@ -1,0 +1,14 @@
+[project]
+name = "mesh-connector-postgres"
+version = "0.1.0"
+description = "Read-only Postgres connector for Analytics Mesh"
+requires-python = ">=3.12"
+dependencies = [
+    "mesh-common",
+    "pyarrow>=17.0",
+    "psycopg[binary]>=3.2",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

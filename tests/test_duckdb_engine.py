@@ -5,6 +5,8 @@ from pathlib import Path
 import pyarrow.parquet as pq
 import pytest
 
+import pyarrow as pa
+
 from mesh_common.schemas import QueryPlan, TableSchema
 from mesh_connector_local_files import LocalFilesConnector
 from mesh_engine_duckdb import DuckDBEngine, SqlGuardError
@@ -80,6 +82,23 @@ def test_allows_semicolon_inside_string_literal(data_dir: Path, tmp_path: Path):
         )
     )
     assert artifact.row_count == 0
+
+
+def test_execute_registers_arrow_tables(tmp_path: Path):
+    engine = DuckDBEngine()
+    artifact = engine.execute(
+        QueryPlan(
+            sql="SELECT SUM(n) AS total FROM nums",
+            row_limit=10,
+            timeout_seconds=5,
+            artifact_dir=tmp_path / "artifacts",
+            tables=[TableSchema(name="nums", connector_id="mem", format="postgres")],
+        ),
+        arrow_tables={"nums": pa.table({"n": [1, 2, 3]})},
+    )
+    assert artifact.row_count == 1
+    table = pq.read_table(artifact.path)
+    assert table.column("total")[0].as_py() == 6
 
 
 def test_rejects_multiple_statements(data_dir: Path, tmp_path: Path):

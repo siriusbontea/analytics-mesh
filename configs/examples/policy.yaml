@@ -1,0 +1,41 @@
+# YAML allowlists for M4. Swap this file for an OPA/Cedar adapter later;
+# PolicyEngine.authorize() is the stable interface.
+default_principal: local
+deny_unknown_principals: true
+principals:
+  local:
+    allow_adhoc_sql: true
+    allow_assist: true
+    connectors: ["*"]
+    analytics: ["*"]
+    nodes: ["*"]
+    max_row_limit: 10000
+    query_timeout_seconds: 30
+    model_mode: local_only
+  web:
+    allow_adhoc_sql: true
+    allow_assist: true
+    connectors: ["*"]
+    analytics: ["*"]
+    nodes: ["*"]
+    max_row_limit: 10000
+    query_timeout_seconds: 30
+    model_mode: local_only
+  tester:
+    allow_adhoc_sql: true
+    allow_assist: true
+    connectors: ["*"]
+    analytics: ["*"]
+    nodes: ["*"]
+    max_row_limit: 10000
+    query_timeout_seconds: 30
+    model_mode: local_only
+  analyst:
+    allow_adhoc_sql: true
+    allow_assist: true
+    connectors: ["*"]
+    analytics: ["*"]
+    nodes: ["*"]
+    max_row_limit: 100000
+    query_timeout_seconds: 60
+    model_mode: allow_frontier

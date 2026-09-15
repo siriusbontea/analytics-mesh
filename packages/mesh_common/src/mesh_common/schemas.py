@@ -17,7 +17,7 @@ class TableSchema(BaseModel):
     connector_id: str
     columns: list[ColumnSchema] = Field(default_factory=list)
     source_path: str | None = None
-    format: Literal["csv", "parquet", "json"] | None = None
+    format: Literal["csv", "parquet", "json", "postgres"] | None = None
 
 
 class ConnectorInfo(BaseModel):
@@ -102,6 +102,8 @@ class QueryRequest(BaseModel):
     sql: str
     row_limit: int | None = None
     principal: str = "local"
+    assist_model_provider: str | None = None
+    assist_model_id: str | None = None
 
 
 class QueryResponse(BaseModel):
@@ -145,11 +147,44 @@ class JobRecord(BaseModel):
     error: str | None = None
 
 
+class AssistNl2SqlRequest(BaseModel):
+    question: str
+    principal: str = "local"
+
+
+class AssistExplainRequest(BaseModel):
+    artifact_id: str | None = None
+    principal: str = "local"
+
+
+class AssistNl2SqlResponse(BaseModel):
+    used: bool
+    confirmed: bool = False
+    question: str
+    sql: str | None = None
+    message: str
+    model_provider: str | None = None
+    model_id: str | None = None
+    receipt: Receipt | None = None
+
+
+class AssistExplainResponse(BaseModel):
+    used: bool
+    artifact_id: str | None = None
+    explanation: str | None = None
+    message: str
+    model_provider: str | None = None
+    model_id: str | None = None
+    receipt: Receipt | None = None
+
+
 class PlaneQueryRequest(BaseModel):
     node_id: str
     sql: str
     row_limit: int | None = None
     principal: str = "local"
+    assist_model_provider: str | None = None
+    assist_model_id: str | None = None
 
 
 class PlaneAnalyticRunRequest(BaseModel):

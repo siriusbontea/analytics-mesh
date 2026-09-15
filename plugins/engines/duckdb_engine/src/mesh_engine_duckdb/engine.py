@@ -8,6 +8,8 @@ from uuid import uuid4
 import duckdb
 import pyarrow.parquet as pq
 
+from typing import Any
+
 from mesh_common.hashing import sha256_file
 from mesh_common.schemas import ArtifactRef, QueryPlan, TableSchema
 from mesh_engine_duckdb.sql_guard import SqlGuardError, validate_sql
@@ -45,17 +47,23 @@ class DuckDBEngine:
     id = "duckdb"
     version = __version__
 
-    def execute(self, plan: QueryPlan) -> ArtifactRef:
+    def execute(self, plan: QueryPlan, arrow_tables: dict[str, Any] | None = None) -> ArtifactRef:
         sql = validate_sql(plan.sql)
         artifact_dir = Path(plan.artifact_dir)
         artifact_dir.mkdir(parents=True, exist_ok=True)
+        registered = arrow_tables or {}
 
         con = duckdb.connect(":memory:")
         try:
             con.execute("SET enable_progress_bar = false")
             con.execute("SET memory_limit = '256MB'")
             for table in plan.tables:
-                con.execute(_view_sql(table))
+                if table.name in registered:
+                    con.register(_quote_ident(table.name), registered[table.name])
+                elif table.format in {"csv", "parquet", "json"}:
+                    con.execute(_view_sql(table))
+                else:
+                    raise SqlGuardError(f"table {table.name} has no scan data")
             con.execute("SET enable_external_access = false")
 
             wrapped = f"SELECT * FROM (\n{sql}\n) AS _mesh_q LIMIT {int(plan.row_limit)}"

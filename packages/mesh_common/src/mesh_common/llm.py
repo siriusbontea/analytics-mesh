@@ -69,6 +69,10 @@ def assist_attribution(slot: LlmSlotConfig | None) -> dict[str, str | None]:
     return {"model_provider": slot.provider, "model_id": slot.model}
 
 
+class LlmNotConfigured(RuntimeError):
+    """Assist requested but no provider slot is configured."""
+
+
 class OpenAICompatibleClient:
     """One interface for Ollama, LM Studio, vLLM, OpenRouter, and other /v1 backends."""
 
@@ -79,6 +83,19 @@ class OpenAICompatibleClient:
     def list_models(self) -> list[str]:
         api_key = os.environ.get(self.slot.api_key_env) if self.slot.api_key_env else None
         return probe_models(self.slot.base_url, api_key=api_key, timeout=self.timeout)
+
+    def chat(self, messages: list[dict[str, str]], timeout: float | None = None) -> str:
+        response = httpx.post(
+            f"{self.slot.base_url.rstrip('/')}/chat/completions",
+            json={"model": self.slot.model, "messages": messages, "temperature": 0},
+            headers=slot_headers(self.slot),
+            timeout=timeout or self.timeout,
+        )
+        response.raise_for_status()
+        content = response.json()["choices"][0]["message"]["content"]
+        if not isinstance(content, str):
+            raise ValueError("model returned empty content")
+        return content
 
     def probe(self) -> ModelProbeResult:
         try:
@@ -124,6 +141,40 @@ class LlmClient:
             if name == slot_name or (slot_name == "fallback" and name.startswith("fallback")):
                 return OpenAICompatibleClient(slot).probe()
         return None
+
+    def complete(self, slot: LlmSlotConfig, messages: list[dict[str, str]], timeout: float = 60.0) -> str:
+        return OpenAICompatibleClient(slot, timeout=timeout).chat(messages, timeout=timeout)
+
+    def candidate_slots(self, purpose: Literal["main", "auxiliary"], allow_frontier: bool) -> list[LlmSlotConfig]:
+        ordered: list[LlmSlotConfig] = []
+        if purpose == "auxiliary" and self.config.auxiliary is not None:
+            ordered.append(self.config.auxiliary)
+        if self.config.main is not None:
+            ordered.append(self.config.main)
+        ordered.extend(self.config.fallback)
+        filtered = [slot for slot in ordered if allow_frontier or slot.provider == "local"]
+        seen: set[tuple[str, str, str]] = set()
+        unique: list[LlmSlotConfig] = []
+        for slot in filtered:
+            key = (slot.provider, slot.base_url, slot.model)
+            if key in seen:
+                continue
+            seen.add(key)
+            unique.append(slot)
+        unique.sort(key=lambda item: 0 if item.provider == "local" else 1)
+        return unique
+
+
+def extract_sql(text: str) -> str:
+    cleaned = text.strip()
+    if cleaned.startswith("```"):
+        lines = cleaned.splitlines()
+        if lines and lines[0].startswith("```"):
+            lines = lines[1:]
+        if lines and lines[-1].strip() == "```":
+            lines = lines[:-1]
+        cleaned = "\n".join(lines).strip()
+    return cleaned
 
 
 def load_llm_config(path: Path | str) -> LlmProviderConfig:

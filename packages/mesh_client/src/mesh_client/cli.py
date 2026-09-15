@@ -10,11 +10,73 @@ import uvicorn
 
 app = typer.Typer(
     name="mesh",
-    help="Analytics Mesh CLI: serve a node or plane, query, run analytics, and inspect receipts.",
+    help="Analytics Mesh CLI: serve a node or plane, query, run analytics, propose SQL, and inspect receipts.",
     no_args_is_help=True,
 )
 analytics_app = typer.Typer(help="List and run registered analytics.")
 app.add_typer(analytics_app, name="analytics")
+
+
+@app.command()
+def assist(
+    question: Optional[str] = typer.Option(None, "--question", "-q", help="Natural-language question → proposed SQL"),
+    explain: Optional[str] = typer.Option(None, "--explain", help="Artifact id to explain (auxiliary model)"),
+    url: str = typer.Option("http://127.0.0.1:8080", "--url"),
+    node: Optional[str] = typer.Option(None, "--node", help="Target node id when talking to the control plane"),
+    principal: str = typer.Option("local", "--principal"),
+    confirm_run: bool = typer.Option(
+        False,
+        "--confirm-run",
+        help="After proposing SQL, run it. Never implied; omit this flag to only print the proposal.",
+    ),
+) -> None:
+    """Propose SQL from a question, or explain a result. Never auto-executes SQL."""
+    if bool(question) == bool(explain):
+        raise typer.BadParameter("provide exactly one of --question or --explain")
+    if explain is not None:
+        payload: dict[str, object] = {"artifact_id": explain, "principal": principal}
+        if node is not None:
+            path = f"/nodes/{node}/assist/explain"
+        else:
+            path = "/assist/explain"
+        response = httpx.post(f"{url.rstrip('/')}{path}", json=payload, timeout=60.0)
+        if response.status_code >= 400:
+            _print_http_error(response)
+            raise typer.Exit(code=1)
+        _print_json(response.json())
+        return
+
+    payload = {"question": question, "principal": principal}
+    if node is not None:
+        path = f"/nodes/{node}/assist/nl2sql"
+    else:
+        path = "/assist/nl2sql"
+    response = httpx.post(f"{url.rstrip('/')}{path}", json=payload, timeout=60.0)
+    if response.status_code >= 400:
+        _print_http_error(response)
+        raise typer.Exit(code=1)
+    body = response.json()
+    _print_json(body)
+    if not confirm_run:
+        typer.echo("Not run. Re-invoke with --confirm-run after you have reviewed the SQL.", err=True)
+        return
+    sql = body.get("sql")
+    if not sql:
+        typer.echo("No SQL to confirm.", err=True)
+        raise typer.Exit(code=1)
+    query_payload: dict[str, object] = {
+        "sql": sql,
+        "principal": principal,
+        "assist_model_provider": body.get("model_provider"),
+        "assist_model_id": body.get("model_id"),
+    }
+    if node is not None:
+        query_payload["node_id"] = node
+    ran = httpx.post(f"{url.rstrip('/')}/query", json=query_payload, timeout=60.0)
+    if ran.status_code >= 400:
+        _print_http_error(ran)
+        raise typer.Exit(code=1)
+    _print_json(ran.json())
 
 
 def _print_json(payload: object) -> None:

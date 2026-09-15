@@ -10,9 +10,15 @@ connectors:
     root: data/samples
     labels: [personal]
 analytics_dir: analytics
+policy_path: configs/examples/policy.yaml
 limits:
   default_row_limit: 10000
   max_row_limit: 100000
   query_timeout_seconds: 30
+artifacts:
+  max_bytes_per_file: 104857600   # 100 MiB per parquet
+  max_total_bytes: 1073741824     # 1 GiB total
+  retention_days: 7
+  max_files: 200
 # models: leave unset so analytics runs with zero LLM configured
 # models_path: configs/examples/models.yaml

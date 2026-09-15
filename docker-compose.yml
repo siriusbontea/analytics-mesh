@@ -1,0 +1,12 @@
+# Optional live Postgres for the read-only connector.
+#   docker compose up -d postgres
+#   MESH_POSTGRES_DSN=postgresql://mesh:mesh@127.0.0.1:5432/mesh uv run pytest -m integration
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: mesh
+      POSTGRES_PASSWORD: mesh
+      POSTGRES_DB: mesh
+    ports:
+      - "5432:5432"
