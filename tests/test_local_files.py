@@ -50,6 +50,30 @@ def test_scan_projection(tmp_path: Path, sales_csv_text: str):
     assert table.column_names == ["product", "amount"]
 
 
+def test_nested_duplicate_stems_get_unique_table_names(tmp_path: Path, sales_csv_text: str):
+    (tmp_path / "sales.csv").write_text(sales_csv_text)
+    nested = tmp_path / "node-b"
+    nested.mkdir()
+    (nested / "sales.csv").write_text(
+        "order_id,product,region,amount,sold_on\n1,babylon-sprocket,west,99.0,2026-02-01\n"
+    )
+    tables = LocalFilesConnector(root=tmp_path).discover_schema()
+    names = [item.name for item in tables]
+    assert len(names) == len(set(names))
+    assert "sales" in names
+    assert any(name != "sales" for name in names)
+
+
+def test_example_samples_dir_exposes_sales(tmp_path: Path):
+    repo = Path(__file__).resolve().parents[1]
+    discovered = LocalFilesConnector(root=repo / "data/samples").discover_schema()
+    names = [item.name for item in discovered]
+    assert len(names) == len(set(names))
+    tables = {item.name: item for item in discovered}
+    assert "sales" in tables
+    assert tables["sales"].source_path.endswith("data/samples/sales.csv")
+
+
 def test_ignores_unknown_extensions(tmp_path: Path, sales_csv_text: str):
     _write_sample_files(tmp_path, sales_csv_text)
     connector = LocalFilesConnector(root=tmp_path)

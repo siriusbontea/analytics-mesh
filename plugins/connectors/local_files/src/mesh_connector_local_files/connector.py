@@ -33,8 +33,13 @@ def _safe_name(path: Path, root: Path, used: set[str]) -> str:
     if name in used:
         rel = path.relative_to(root).with_suffix("")
         name = re.sub(r"[^A-Za-z0-9_]", "_", str(rel)).lower()
-        if name[0].isdigit():
-            name = f"t_{name}"
+        if not name or name[0].isdigit():
+            name = f"t_{name}" if name else "table"
+    original = name
+    suffix = 2
+    while name in used:
+        name = f"{original}_{suffix}"
+        suffix += 1
     used.add(name)
     return name
 
@@ -74,7 +79,7 @@ class LocalFilesConnector:
             return []
         used: set[str] = set()
         tables: list[TableSchema] = []
-        for path in sorted(self.root.rglob("*")):
+        for path in sorted(self.root.rglob("*"), key=lambda item: (len(item.relative_to(self.root).parts), str(item))):
             if not path.is_file() or path.suffix.lower() not in _FORMATS:
                 continue
             table = _read_table(path)
