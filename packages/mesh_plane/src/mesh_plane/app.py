@@ -129,6 +129,11 @@ def create_app(config: PlaneConfig | None = None, proxy: NodeProxy | None = None
         node = _require_node(store, node_id)
         return node_proxy.list_analytics(node.endpoint)
 
+    @app.get("/nodes/{node_id}/connectors")
+    def node_connectors(node_id: str) -> dict[str, object]:
+        node = _require_node(store, node_id)
+        return node_proxy.list_connectors(node.endpoint)
+
     @app.get("/nodes/{node_id}/models")
     def node_models(node_id: str, probe: bool = False) -> dict[str, object]:
         node = _require_node(store, node_id)

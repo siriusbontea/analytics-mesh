@@ -51,6 +51,7 @@ def create_app(config: NodeConfig | None = None) -> FastAPI:
             "version": __version__,
             "public_key": runtime.identity.public_key_hex,
             "llm_configured": cfg.models.is_configured(),
+            "engines": sorted(runtime.engines),
         }
 
     @app.get("/connectors")

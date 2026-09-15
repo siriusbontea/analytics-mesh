@@ -90,7 +90,11 @@ def test_loads_repo_example_analytics():
     ids = {item.analytic_id for item in registry.list()}
     assert "top_products" in ids
     assert "sales_by_region" in ids
+    assert "top_products_polars" in ids
     spec = registry.get("top_products")
     assert spec.version == "1.0.0"
     assert spec.engine == "duckdb"
     assert "FROM sales" in spec.sql
+    polars = registry.get("top_products_polars")
+    assert polars.engine == "polars"
+    assert "FROM sales" in polars.sql

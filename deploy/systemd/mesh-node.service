@@ -1,0 +1,19 @@
+[Unit]
+Description=Analytics Mesh node
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=mesh
+Group=mesh
+WorkingDirectory=/opt/analytics-mesh
+Environment=MESH_NODE_CONFIG=/etc/analytics-mesh/node.yaml
+Environment=MESH_LISTEN_HOST=127.0.0.1
+ExecStart=/usr/bin/uv run --directory /opt/analytics-mesh mesh-node
+Restart=on-failure
+RestartSec=3
+# Bind locally (or a Tailscale address). Do not expose on a public NIC.
+
+[Install]
+WantedBy=multi-user.target

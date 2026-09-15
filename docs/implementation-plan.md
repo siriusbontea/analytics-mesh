@@ -56,6 +56,15 @@
 
 **Exit:** Policy denials 403; NL→SQL never auto-runs; `uv run pytest` green.
 
-## 5. Not in M4
+## 5. M5 tasks (implemented)
 
-MCP + Polars (M5), federated learning, Hermes learning loop, messaging gateways, full OPA deployment.
+1. MCP adapter (`packages/mesh_mcp`, `mesh mcp`): tools `list_analytics`, `run_analytic`, `get_receipt` plus optional `list_connectors` / `list_nodes`. Tools call the same policy-gated HTTP APIs as CLI/web. stdio for desktop clients; HTTP JSON at `/tools`.
+2. Assist fallback chain: try main (or auxiliary) then configured fallbacks in order. Receipts record `model_provider`, `model_id`, `model_slot`, `model_fallback_used`, and `model_attempts`.
+3. Optional Polars engine plugin (`plugins/engines/polars_engine`, analytic `top_products_polars`). DuckDB remains the default for ad-hoc SQL.
+4. Hardening: systemd units in `deploy/systemd/`, `python -m mesh_node` / `mesh-node` / `mesh-plane` / `mesh-mcp` entrypoints, auth notes in the README. Artifact size caps stay as in M4.
+
+**Exit:** MCP tools policy-gated; Polars example green; fallback receipts recorded; `uv run pytest` green.
+
+## 6. Not in M5 / v1
+
+Federated learning, Hermes learning loop, messaging gateways, full OPA deployment, Axonis decision graph UI.

@@ -145,23 +145,27 @@ class LlmClient:
     def complete(self, slot: LlmSlotConfig, messages: list[dict[str, str]], timeout: float = 60.0) -> str:
         return OpenAICompatibleClient(slot, timeout=timeout).chat(messages, timeout=timeout)
 
-    def candidate_slots(self, purpose: Literal["main", "auxiliary"], allow_frontier: bool) -> list[LlmSlotConfig]:
-        ordered: list[LlmSlotConfig] = []
+    def candidate_slots(
+        self, purpose: Literal["main", "auxiliary"], allow_frontier: bool
+    ) -> list[tuple[str, LlmSlotConfig]]:
+        """Ordered (slot_name, slot) chain: main or auxiliary first, then configured fallbacks."""
+        ordered: list[tuple[str, LlmSlotConfig]] = []
         if purpose == "auxiliary" and self.config.auxiliary is not None:
-            ordered.append(self.config.auxiliary)
-        if self.config.main is not None:
-            ordered.append(self.config.main)
-        ordered.extend(self.config.fallback)
-        filtered = [slot for slot in ordered if allow_frontier or slot.provider == "local"]
+            ordered.append(("auxiliary", self.config.auxiliary))
+        elif self.config.main is not None:
+            ordered.append(("main", self.config.main))
+        for index, slot in enumerate(self.config.fallback):
+            name = "fallback" if index == 0 else f"fallback[{index}]"
+            ordered.append((name, slot))
+        filtered = [(name, slot) for name, slot in ordered if allow_frontier or slot.provider == "local"]
         seen: set[tuple[str, str, str]] = set()
-        unique: list[LlmSlotConfig] = []
-        for slot in filtered:
+        unique: list[tuple[str, LlmSlotConfig]] = []
+        for name, slot in filtered:
             key = (slot.provider, slot.base_url, slot.model)
             if key in seen:
                 continue
             seen.add(key)
-            unique.append(slot)
-        unique.sort(key=lambda item: 0 if item.provider == "local" else 1)
+            unique.append((name, slot))
         return unique
 
 

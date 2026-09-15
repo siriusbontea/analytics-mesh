@@ -2,7 +2,7 @@
 
 Query-first local analytics. Point a node at a directory of CSV, Parquet, or JSON files, run sandboxed DuckDB SQL, and get a Parquet artifact plus a hash-chained receipt. No LLM is required.
 
-M1 is a **single node** on one machine. M2 adds a thin **control plane** that registers nodes and routes `run_query` to a target node. The plane stores job metadata and pointers only — not source tables. M3 adds a **versioned analytic registry**, a **minimal web UI**, and optional **OpenAI-compatible model config**. M4 adds **YAML policy allowlists**, **artifact retention/size caps**, a **read-only Postgres connector**, and optional **NL→SQL assist** that never auto-executes. Analytics still work with **zero** LLM configured.
+M1 is a **single node** on one machine. M2 adds a thin **control plane** that registers nodes and routes `run_query` to a target node. The plane stores job metadata and pointers only — not source tables. M3 adds a **versioned analytic registry**, a **minimal web UI**, and optional **OpenAI-compatible model config**. M4 adds **YAML policy allowlists**, **artifact retention/size caps**, a **read-only Postgres connector**, and optional **NL→SQL assist** that never auto-executes. M5 completes v1: an **analytics-only MCP adapter**, an optional **Polars engine**, and a **main → fallback** assist chain recorded on receipts. Analytics still work with **zero** LLM configured.
 
 ## Requirements
 
@@ -113,12 +113,15 @@ uv run pytest
 packages/mesh_common/     schemas, hash-chained receipts, analytic registry, OpenAI-compatible LLM client, web UI
 packages/mesh_node/       FastAPI node: health, connectors, analytics, query, results, receipts, models, /ui
 packages/mesh_plane/      thin control plane: node registry, jobs, proxy run_query / run_analytic, /ui
-packages/mesh_client/     CLI: serve / plane / pair / nodes / jobs / query / analytics / assist / receipt
+packages/mesh_client/     CLI: serve / plane / pair / nodes / jobs / query / analytics / assist / mcp / receipt
+packages/mesh_mcp/        analytics-only MCP adapter (stdio or HTTP)
 plugins/connectors/local_files/
 plugins/connectors/postgres/
 plugins/engines/duckdb_engine/
+plugins/engines/polars_engine/   optional; DuckDB stays default
 analytics/                versioned YAML + SQL analytics (scanned from node `analytics_dir`)
 configs/examples/         node.yaml, policy.yaml, models.yaml, node-postgres.yaml, plane.yaml
+deploy/systemd/           mesh-node / mesh-plane / mesh-mcp unit files
 docker-compose.yml        optional Postgres for the read-only connector
 scripts/two-node-demo.sh  localhost two-node walkthrough
 tests/
@@ -153,6 +156,7 @@ tests/
 | POST | `/nodes/register` | Pair a node (token + Ed25519 signature) |
 | GET | `/nodes` | Node directory |
 | GET | `/nodes/{node_id}/analytics` | Proxy `list_analytics` |
+| GET | `/nodes/{node_id}/connectors` | Proxy `list_connectors` |
 | POST | `/nodes/{node_id}/assist/nl2sql` | Proxy NL→SQL propose (never executes) |
 | POST | `/nodes/{node_id}/assist/explain` | Proxy explain assist |
 | POST | `/query` | Create a job and proxy `run_query` to `node_id` |
@@ -265,6 +269,104 @@ uv run mesh assist --question "Which product sold the most?" --confirm-run
 `--confirm-run` is required to execute. The web UI has the same two-step **Propose SQL** / **Confirm and run proposed SQL** buttons. `/assist/nl2sql` never calls the engine. When a confirmed run uses a proposal, the query receipt records `model_provider` / `model_id`. Explain assist prefers the auxiliary (local) slot and a capped preview.
 
 If no model is configured, assist returns a clear error and analytics still work.
+
+When assist is used, the node tries **main** (NL→SQL) or **auxiliary** (explain), then the configured `fallback` list in order. Capacity / timeout / auth failures skip to the next slot. The receipt records who actually served:
+
+| Field | Meaning |
+| --- | --- |
+| `model_provider` / `model_id` | Slot that produced the answer |
+| `model_slot` | `main`, `auxiliary`, `fallback`, or `fallback[n]` |
+| `model_fallback_used` | `true` when a fallback slot served |
+| `model_attempts` | Each tried slot: `slot`, `provider`, `model`, `status`, `error` |
+
+`local_only` still strips frontier slots from the chain before the first call.
+
+## M5 — MCP, Polars, fallback receipts, v1 complete
+
+M1–M5 together are v1: query where the data lives, return an artifact plus a verifiable receipt, keep source tables on the owning node.
+
+| Milestone | What it added |
+| --- | --- |
+| M1 | Single-node CSV/Parquet + DuckDB SQL + receipts + CLI |
+| M2 | Thin plane, pairing, job routing to a second node |
+| M3 | Analytic registry, web UI, OpenAI-compatible model slots |
+| M4 | YAML policy, artifact caps, Postgres connector, NL→SQL confirm |
+| M5 | MCP analytics toolset, optional Polars engine, fallback receipts |
+
+### MCP adapter (analytics toolset only)
+
+The adapter is a client of the node (or plane), not a second execution path. Tools call the same policy-gated HTTP APIs as `mesh analytics` / `mesh receipt`. There is **no** `run_query`, raw SQL, shell, or connector-credential tool.
+
+| Tool | Upstream API |
+| --- | --- |
+| `list_analytics` | `GET /analytics` or `GET /nodes/{id}/analytics` |
+| `run_analytic` | `POST /analytics/run` |
+| `get_receipt` | `GET /receipts/{id}` (or plane node-scoped path) |
+| `list_connectors` | `GET /connectors` (optional) |
+| `list_nodes` | `GET /nodes` on the plane (optional) |
+
+Start a node (or plane), then the adapter:
+
+```bash
+# stdio — point Cursor / Claude Desktop / other MCP clients at this command
+uv run mesh mcp --url http://127.0.0.1:8080 --principal local
+
+# HTTP JSON — GET /tools, POST /tools/{name}
+uv run mesh mcp --transport http --host 127.0.0.1 --port 8765
+
+# Official MCP Streamable HTTP (path /mcp) for MCP-native clients
+uv run mesh mcp --transport streamable-http --host 127.0.0.1 --port 8765
+```
+
+`python -m mesh_mcp` and the `mesh-mcp` script honor `MESH_URL`, `MESH_PRINCIPAL`, `MESH_NODE`, `MESH_MCP_TRANSPORT`, `MESH_MCP_HOST`, `MESH_MCP_PORT`.
+
+Cursor / Claude Desktop example (`~/.cursor/mcp.json` or Claude's MCP config):
+
+```json
+{
+  "mcpServers": {
+    "analytics-mesh": {
+      "command": "uv",
+      "args": ["run", "--directory", "/path/to/analytics-mesh", "mesh", "mcp"],
+      "env": {
+        "MESH_URL": "http://127.0.0.1:8080",
+        "MESH_PRINCIPAL": "local"
+      }
+    }
+  }
+}
+```
+
+Via the plane, set `MESH_URL` to the plane and `MESH_NODE` (or `--node`) to the target node id. Ad-hoc SQL stays on the CLI/web confirm path; MCP will not invent a SQL tool unless you add one that goes through the same `/query` policy (not shipped).
+
+HTTP smoke:
+
+```bash
+curl -s http://127.0.0.1:8765/tools
+curl -s -X POST http://127.0.0.1:8765/tools/list_analytics
+curl -s -X POST http://127.0.0.1:8765/tools/run_analytic \
+  -H 'content-type: application/json' \
+  -d '{"arguments":{"analytic_id":"top_products"}}'
+```
+
+### Optional Polars engine
+
+DuckDB remains the default for `mesh query` and analytics with `engine: duckdb`. Register a Polars analytic with `engine: polars` (example: `top_products_polars`, same SQL as `top_products`). The node loads `plugins/engines/polars_engine` when the package is installed; if Polars is omitted, DuckDB-only nodes still run.
+
+```bash
+uv run mesh analytics run top_products_polars
+```
+
+### Auth and services
+
+- Default listen address is `127.0.0.1`. Put nodes on LAN or Tailscale; do not publish MCP or node HTTP on a public NIC.
+- Pairing still uses the registration token + node Ed25519 key. Replace `demo-pair-token` outside a laptop demo.
+- Policy principals (`--principal` / `MESH_PRINCIPAL`) are the authorization identity. MCP does not add a second auth layer; it forwards the principal to the node. Unknown principals are denied when `deny_unknown_principals` is set.
+- Connector secrets stay on the node (`dsn_env`, keychain). They are never tools, YAML API keys, or MCP arguments.
+- Artifact size/retention caps are unchanged from M4 (`artifacts:` on the node).
+- Service-friendly entrypoints: `mesh serve` / `mesh plane` / `mesh mcp`, `python -m mesh_node` / `mesh_plane` / `mesh_mcp`, and scripts `mesh-node`, `mesh-plane`, `mesh-mcp`. Example units: `deploy/systemd/`.
+
+Out of v1 scope (unchanged): federated learning, Hermes learning loop / messaging gateways, full OPA, Axonis decision-graph UI.
 
 ## Docs
 
