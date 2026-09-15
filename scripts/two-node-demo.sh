@@ -64,6 +64,14 @@ echo "registered nodes:"
 uv run mesh nodes --url "$PLANE_URL"
 
 echo
+echo "registered analytics on Node B:"
+uv run mesh analytics list --url "$PLANE_URL" --node node-b
+
+echo
+echo "run analytic top_products on Node B via the plane:"
+uv run mesh analytics run top_products --url "$PLANE_URL" --node node-b
+
+echo
 echo "query Node B via the plane (source data stays on B):"
 uv run mesh query --url "$PLANE_URL" --node node-b --sql \
   "SELECT product, SUM(amount) AS total FROM sales GROUP BY product ORDER BY total DESC"
@@ -77,5 +85,8 @@ echo "Demo processes are still running. Ctrl-C to stop."
 echo "More commands:"
 echo "  uv run mesh nodes --url $PLANE_URL"
 echo "  uv run mesh query --url $PLANE_URL --node node-b --sql 'SELECT product FROM sales'"
+echo "  uv run mesh analytics run top_products --url $PLANE_URL --node node-b"
 echo "  uv run mesh receipt <receipt_id> --url $PLANE_URL --verify-chain"
+echo "Web UI (plane, pick a node): $PLANE_URL/ui"
+echo "Web UI (Node B direct): $NODE_B_URL/ui"
 wait

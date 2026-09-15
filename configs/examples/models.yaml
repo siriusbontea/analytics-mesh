@@ -1,5 +1,7 @@
-# Optional OpenAI-compatible providers. M1 analytics does not load this file.
-# Copy fields into node.yaml under `models:` when you add assist features later.
+# Optional OpenAI-compatible providers (Ollama / LM Studio / vLLM / OpenRouter).
+# Analytics work with zero LLM configured. Point node.yaml at this file with
+# `models_path:` or copy the `main` / `auxiliary` / `fallback` slots under `models:`.
+# Do not put API keys here; use api_key_env. Probe with GET {base_url}/models.
 main:
   provider: local
   base_url: http://127.0.0.1:11434/v1

@@ -1,0 +1,8 @@
+analytic_id: sales_by_region
+version: 1.0.0
+engine: duckdb
+entry: sales_by_region.sql
+allowed_connectors:
+  - local_files
+description: Totals and order counts by region
+params_schema: {}

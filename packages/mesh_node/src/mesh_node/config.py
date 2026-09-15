@@ -5,7 +5,7 @@ from pathlib import Path
 import yaml
 from pydantic import BaseModel, Field
 
-from mesh_common.llm import LlmProviderConfig
+from mesh_common.llm import LlmProviderConfig, load_llm_config
 
 
 class ConnectorConfig(BaseModel):
@@ -37,6 +37,8 @@ class NodeConfig(BaseModel):
     connectors: list[ConnectorConfig] = Field(default_factory=list)
     limits: LimitsConfig = Field(default_factory=LimitsConfig)
     models: LlmProviderConfig = Field(default_factory=LlmProviderConfig)
+    models_path: Path | None = None
+    analytics_dir: Path | None = None
     listen_host: str = "127.0.0.1"
     listen_port: int = 8080
     plane: PlaneClientConfig | None = None
@@ -54,11 +56,21 @@ class NodeConfig(BaseModel):
         }
         if self.identity_key_path is not None:
             updates["identity_key_path"] = resolve(self.identity_key_path)
+        if self.analytics_dir is not None:
+            updates["analytics_dir"] = resolve(self.analytics_dir)
+        if self.models_path is not None:
+            updates["models_path"] = resolve(self.models_path)
         return self.model_copy(update=updates)
 
 
 def load_config(path: Path | str) -> NodeConfig:
     config_path = Path(path)
     raw = yaml.safe_load(config_path.read_text()) or {}
+    models_path = raw.get("models_path")
+    if models_path and "models" not in raw:
+        models_file = Path(models_path)
+        if not models_file.is_absolute():
+            models_file = Path.cwd() / models_file
+        raw["models"] = load_llm_config(models_file).model_dump(mode="json")
     cfg = NodeConfig.model_validate(raw)
     return cfg.resolve_paths(Path.cwd())

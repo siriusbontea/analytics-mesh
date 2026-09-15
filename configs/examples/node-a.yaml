@@ -10,6 +10,7 @@ connectors:
     type: local_files
     root: data/samples
     labels: [personal]
+analytics_dir: analytics
 limits:
   default_row_limit: 10000
   max_row_limit: 100000

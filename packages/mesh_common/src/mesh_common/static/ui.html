@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Analytics Mesh</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f5f1;
+      --card: #fff;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #d6d3d1;
+      --accent: #1d4ed8;
+      --ok: #166534;
+      --err: #b91c1c;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0 auto;
+      max-width: 960px;
+      padding: 1.5rem 1.25rem 3rem;
+      font: 15px/1.45 ui-sans-serif, system-ui, sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+    }
+    h1 { font-size: 1.35rem; margin: 0 0 0.25rem; }
+    h2 { font-size: 1rem; margin: 0 0 0.75rem; }
+    p.lede { color: var(--muted); margin: 0 0 1.25rem; }
+    section {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 1rem 1.1rem;
+      margin-bottom: 1rem;
+    }
+    label { display: block; font-weight: 600; margin: 0.6rem 0 0.3rem; }
+    select, textarea, input, button {
+      font: inherit;
+      width: 100%;
+    }
+    select, textarea, input[type="text"] {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 0.45rem 0.6rem;
+      background: #fff;
+    }
+    textarea { min-height: 7rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .row { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+    .row > * { flex: 1 1 12rem; }
+    button {
+      width: auto;
+      margin-top: 0.85rem;
+      background: var(--accent);
+      color: #fff;
+      border: 0;
+      border-radius: 8px;
+      padding: 0.5rem 0.9rem;
+      cursor: pointer;
+    }
+    button.secondary { background: #44403c; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .muted { color: var(--muted); font-size: 0.92rem; }
+    .status.ok { color: var(--ok); }
+    .status.err { color: var(--err); }
+    table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+    th, td { border-bottom: 1px solid var(--line); text-align: left; padding: 0.35rem 0.4rem; }
+    th { color: var(--muted); font-weight: 600; }
+    pre {
+      background: #f5f5f4;
+      border-radius: 8px;
+      padding: 0.7rem;
+      overflow: auto;
+      font-size: 0.8rem;
+    }
+    a { color: var(--accent); }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <h1>Analytics Mesh</h1>
+  <p class="lede">Pick a node, run a registered analytic or sandboxed SQL, then inspect the table, artifact, and receipt. No LLM required.</p>
+
+  <section>
+    <h2>Target</h2>
+    <p id="modeLabel" class="muted">Detecting…</p>
+    <div id="nodeWrap" class="hidden">
+      <label for="node">Node</label>
+      <select id="node"></select>
+    </div>
+    <p id="modelsStatus" class="muted"></p>
+  </section>
+
+  <section>
+    <h2>Run</h2>
+    <div class="row">
+      <div>
+        <label for="kind">Source</label>
+        <select id="kind">
+          <option value="analytic">Registered analytic</option>
+          <option value="sql">Ad-hoc SQL</option>
+        </select>
+      </div>
+      <div id="analyticWrap">
+        <label for="analytic">Analytic</label>
+        <select id="analytic"></select>
+      </div>
+    </div>
+    <div id="sqlWrap" class="hidden">
+      <label for="sql">SQL</label>
+      <textarea id="sql" placeholder="SELECT product, SUM(amount) AS total FROM sales GROUP BY product"></textarea>
+    </div>
+    <button id="runBtn" type="button">Run</button>
+    <p id="runStatus" class="muted"></p>
+  </section>
+
+  <section>
+    <h2>Result</h2>
+    <p id="resultMeta" class="muted">Nothing run yet.</p>
+    <div style="overflow:auto"><table id="resultTable"></table></div>
+    <p><a id="downloadLink" class="hidden" href="#">Download Parquet artifact</a></p>
+    <button id="assistBtn" class="secondary" type="button" disabled>Explain result (optional assist)</button>
+    <p id="assistStatus" class="muted">Assist is a stub in M3. Core runs never call a model.</p>
+  </section>
+
+  <section>
+    <h2>Receipt</h2>
+    <pre id="receipt">{}</pre>
+  </section>
+
+  <script>
+    const state = { kind: "unknown", nodeId: null, last: null };
+
+    const $ = (id) => document.getElementById(id);
+
+    function setStatus(el, text, cls) {
+      el.className = "muted " + (cls || "");
+      el.textContent = text;
+    }
+
+    async function api(path, options) {
+      const response = await fetch(path, options);
+      const text = await response.text();
+      let body = null;
+      try { body = text ? JSON.parse(text) : null; } catch { body = { detail: text }; }
+      if (!response.ok) {
+        const detail = body && body.detail;
+        const message = typeof detail === "string" ? detail : (detail && detail.message) || response.statusText;
+        throw new Error(message);
+      }
+      return body;
+    }
+
+    function currentNode() {
+      return $("node").value || state.nodeId;
+    }
+
+    async function loadNodes() {
+      const data = await api("/nodes");
+      const select = $("node");
+      select.innerHTML = "";
+      for (const node of data.nodes || []) {
+        const opt = document.createElement("option");
+        opt.value = node.node_id;
+        opt.textContent = node.node_id + " — " + node.endpoint;
+        select.appendChild(opt);
+      }
+      if (!data.nodes || !data.nodes.length) {
+        const opt = document.createElement("option");
+        opt.value = "";
+        opt.textContent = "No nodes registered";
+        select.appendChild(opt);
+      }
+    }
+
+    async function loadAnalytics() {
+      const select = $("analytic");
+      select.innerHTML = "";
+      let data;
+      if (state.kind === "plane") {
+        const nodeId = currentNode();
+        if (!nodeId) return;
+        data = await api("/nodes/" + encodeURIComponent(nodeId) + "/analytics");
+      } else {
+        data = await api("/analytics");
+      }
+      for (const item of data.analytics || []) {
+        const opt = document.createElement("option");
+        opt.value = item.analytic_id;
+        opt.dataset.version = item.version;
+        opt.textContent = item.analytic_id + " @" + item.version + (item.description ? " — " + item.description : "");
+        select.appendChild(opt);
+      }
+    }
+
+    async function loadModels() {
+      try {
+        let data;
+        if (state.kind === "plane") {
+          const nodeId = currentNode();
+          if (!nodeId) return;
+          data = await api("/nodes/" + encodeURIComponent(nodeId) + "/models");
+        } else {
+          data = await api("/models");
+        }
+        if (!data.configured) {
+          $("modelsStatus").textContent = "No LLM configured. Analytics still work.";
+        } else {
+          $("modelsStatus").textContent = "Optional model: " + data.main.provider + " / " + data.main.model + " (assist stub only)";
+        }
+      } catch (err) {
+        $("modelsStatus").textContent = "Model status unavailable: " + err.message;
+      }
+    }
+
+    function renderTable(preview) {
+      const table = $("resultTable");
+      table.innerHTML = "";
+      if (!preview || !preview.columns) return;
+      const head = document.createElement("thead");
+      const hr = document.createElement("tr");
+      for (const col of preview.columns) {
+        const th = document.createElement("th");
+        th.textContent = col;
+        hr.appendChild(th);
+      }
+      head.appendChild(hr);
+      table.appendChild(head);
+      const body = document.createElement("tbody");
+      for (const row of preview.rows || []) {
+        const tr = document.createElement("tr");
+        for (const col of preview.columns) {
+          const td = document.createElement("td");
+          const value = row[col];
+          td.textContent = value == null ? "" : String(value);
+          tr.appendChild(td);
+        }
+        body.appendChild(tr);
+      }
+      table.appendChild(body);
+    }
+
+    async function run() {
+      setStatus($("runStatus"), "Running…");
+      $("assistBtn").disabled = true;
+      try {
+        const kind = $("kind").value;
+        let body;
+        if (kind === "analytic") {
+          const payload = { analytic_id: $("analytic").value, principal: "web" };
+          if (state.kind === "plane") payload.node_id = currentNode();
+          body = await api("/analytics/run", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+        } else {
+          const payload = { sql: $("sql").value, principal: "web" };
+          if (state.kind === "plane") payload.node_id = currentNode();
+          body = await api("/query", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+        }
+        state.last = body;
+        const artifact = body.artifact;
+        const receipt = body.receipt;
+        renderTable(body.preview);
+        $("receipt").textContent = JSON.stringify(receipt, null, 2);
+        const rows = body.preview ? body.preview.row_count : (artifact && artifact.row_count);
+        setStatus($("resultMeta"), (rows == null ? "Done." : rows + " rows") + (receipt ? " · receipt " + receipt.receipt_id : ""), "status ok");
+        const link = $("downloadLink");
+        if (artifact) {
+          if (body.job) {
+            link.href = "/jobs/" + body.job.job_id + "/result";
+          } else {
+            link.href = "/results/" + artifact.artifact_id;
+          }
+          link.classList.remove("hidden");
+        } else {
+          link.classList.add("hidden");
+        }
+        $("assistBtn").disabled = false;
+        setStatus($("runStatus"), "Succeeded.", "status ok");
+      } catch (err) {
+        setStatus($("runStatus"), err.message, "status err");
+        setStatus($("resultMeta"), "Run failed.", "status err");
+      }
+    }
+
+    async function explain() {
+      if (!state.last || !state.last.artifact) {
+        setStatus($("assistStatus"), "Run a query first.", "status err");
+        return;
+      }
+      try {
+        const payload = { artifact_id: state.last.artifact.artifact_id };
+        let path = "/assist/explain";
+        if (state.kind === "plane") {
+          path = "/nodes/" + encodeURIComponent(currentNode()) + "/assist/explain";
+        }
+        const body = await api(path, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!body.used) {
+          setStatus($("assistStatus"), body.message || "No model configured; receipt left model fields empty.");
+        } else {
+          setStatus($("assistStatus"), "Assist used " + body.model_provider + " / " + body.model_id + " (not applied to the query receipt).");
+        }
+      } catch (err) {
+        setStatus($("assistStatus"), err.message, "status err");
+      }
+    }
+
+    $("kind").addEventListener("change", () => {
+      const analytic = $("kind").value === "analytic";
+      $("analyticWrap").classList.toggle("hidden", !analytic);
+      $("sqlWrap").classList.toggle("hidden", analytic);
+    });
+    $("node").addEventListener("change", async () => {
+      await loadAnalytics();
+      await loadModels();
+    });
+    $("runBtn").addEventListener("click", run);
+    $("assistBtn").addEventListener("click", explain);
+
+    (async function init() {
+      try {
+        const health = await api("/health");
+        if (health.plane_id) {
+          state.kind = "plane";
+          $("modeLabel").textContent = "Control plane " + health.plane_id + " — pick a registered node.";
+          $("nodeWrap").classList.remove("hidden");
+          await loadNodes();
+        } else {
+          state.kind = "node";
+          state.nodeId = health.node_id;
+          $("modeLabel").textContent = "Direct node " + health.node_id + ".";
+        }
+        await loadAnalytics();
+        await loadModels();
+      } catch (err) {
+        $("modeLabel").textContent = "Could not reach API: " + err.message;
+      }
+    })();
+  </script>
+</body>
+</html>

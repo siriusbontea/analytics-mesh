@@ -7,14 +7,20 @@ from pathlib import Path
 import httpx
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
+from pydantic import BaseModel
 
-from mesh_common.schemas import QueryRequest, QueryResponse
+from mesh_common.schemas import AnalyticRunRequest, QueryRequest, QueryResponse
+from mesh_common.web import mount_ui
 from mesh_node.config import NodeConfig
 from mesh_node.pairing import register_with_plane
 from mesh_node.runtime import NodeRuntime
 
 __version__ = "0.1.0"
 logger = logging.getLogger("mesh_node")
+
+
+class AssistRequest(BaseModel):
+    artifact_id: str | None = None
 
 
 def create_app(config: NodeConfig | None = None) -> FastAPI:
@@ -33,6 +39,7 @@ def create_app(config: NodeConfig | None = None) -> FastAPI:
     app = FastAPI(title="Analytics Mesh Node", version=__version__, lifespan=lifespan)
     app.state.runtime = runtime
     app.state.config = cfg
+    mount_ui(app)
 
     @app.get("/health")
     def health() -> dict[str, object]:
@@ -48,6 +55,10 @@ def create_app(config: NodeConfig | None = None) -> FastAPI:
     def list_connectors() -> dict[str, object]:
         return {"connectors": [item.model_dump(mode="json") for item in runtime.list_connectors()]}
 
+    @app.get("/analytics")
+    def list_analytics() -> dict[str, object]:
+        return {"analytics": [item.model_dump(mode="json") for item in runtime.list_analytics()]}
+
     @app.post("/query")
     def run_query(request: QueryRequest) -> QueryResponse:
         result = runtime.run_query(request.sql, request.principal, request.row_limit)
@@ -57,6 +68,32 @@ def create_app(config: NodeConfig | None = None) -> FastAPI:
                 detail={"message": result.receipt.error or "query failed", "receipt": result.receipt.model_dump(mode="json")},
             )
         return result
+
+    @app.post("/analytics/run")
+    def run_analytic(request: AnalyticRunRequest) -> QueryResponse:
+        try:
+            result = runtime.run_analytic(
+                request.analytic_id,
+                request.principal,
+                request.row_limit,
+                version=request.version,
+                params=request.params,
+            )
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=f"unknown analytic: {exc.args[0]}") from exc
+        if result.receipt.status == "failed":
+            raise HTTPException(
+                status_code=400,
+                detail={"message": result.receipt.error or "analytic failed", "receipt": result.receipt.model_dump(mode="json")},
+            )
+        return result
+
+    @app.get("/results/{artifact_id}/preview")
+    def get_result_preview(artifact_id: str) -> dict[str, object]:
+        preview = runtime.preview_artifact(artifact_id)
+        if preview is None:
+            raise HTTPException(status_code=404, detail="artifact not found")
+        return preview.model_dump(mode="json")
 
     @app.get("/results/{artifact_id}")
     def get_result(artifact_id: str) -> FileResponse:
@@ -68,6 +105,14 @@ def create_app(config: NodeConfig | None = None) -> FastAPI:
             media_type="application/vnd.apache.parquet",
             filename=f"{artifact_id}.parquet",
         )
+
+    @app.get("/models")
+    def models(probe: bool = False) -> dict[str, object]:
+        return runtime.models_status(probe=probe)
+
+    @app.post("/assist/explain")
+    def assist_explain(request: AssistRequest) -> dict[str, object]:
+        return runtime.explain_stub(request.artifact_id)
 
     @app.get("/receipts/chain")
     def receipt_chain() -> dict[str, object]:

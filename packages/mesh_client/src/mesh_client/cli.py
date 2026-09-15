@@ -10,9 +10,11 @@ import uvicorn
 
 app = typer.Typer(
     name="mesh",
-    help="Analytics Mesh CLI: serve a node or plane, query, and inspect receipts.",
+    help="Analytics Mesh CLI: serve a node or plane, query, run analytics, and inspect receipts.",
     no_args_is_help=True,
 )
+analytics_app = typer.Typer(help="List and run registered analytics.")
+app.add_typer(analytics_app, name="analytics")
 
 
 def _print_json(payload: object) -> None:
@@ -40,6 +42,7 @@ def serve(
     listen_host = host or cfg.listen_host
     listen_port = port or cfg.listen_port
     typer.echo(f"serving node {cfg.node_id} on http://{listen_host}:{listen_port}")
+    typer.echo(f"web UI: http://{listen_host}:{listen_port}/ui")
     uvicorn.run(create_app(cfg), host=listen_host, port=listen_port, log_level="info")
 
 
@@ -57,6 +60,7 @@ def serve_plane(
     listen_host = host or cfg.listen_host
     listen_port = port or cfg.listen_port
     typer.echo(f"serving plane {cfg.plane_id} on http://{listen_host}:{listen_port}")
+    typer.echo(f"web UI: http://{listen_host}:{listen_port}/ui (pick a registered node)")
     uvicorn.run(create_app(cfg), host=listen_host, port=listen_port, log_level="info")
 
 
@@ -206,6 +210,55 @@ def receipt(
                 _print_json(chain.json())
             else:
                 raise
+
+
+@analytics_app.command("list")
+def analytics_list(
+    url: str = typer.Option("http://127.0.0.1:8080", "--url"),
+    node: Optional[str] = typer.Option(None, "--node", help="Target node id when talking to the control plane"),
+) -> None:
+    """List versioned analytics registered on a node."""
+    path = f"/nodes/{node}/analytics" if node is not None else "/analytics"
+    response = httpx.get(f"{url.rstrip('/')}{path}", timeout=10.0)
+    if response.status_code >= 400:
+        _print_http_error(response)
+        raise typer.Exit(code=1)
+    _print_json(response.json())
+
+
+@analytics_app.command("run")
+def analytics_run(
+    analytic_id: str = typer.Argument(..., help="Registered analytic id"),
+    url: str = typer.Option("http://127.0.0.1:8080", "--url"),
+    node: Optional[str] = typer.Option(None, "--node", help="Target node id when talking to the control plane"),
+    version: Optional[str] = typer.Option(None, "--version", help="Pin a semver; default is latest"),
+    row_limit: Optional[int] = typer.Option(None, "--row-limit"),
+    principal: str = typer.Option("local", "--principal"),
+    out: Optional[Path] = typer.Option(None, "--out", help="Write the Parquet artifact to this path"),
+) -> None:
+    """Run a registered analytic by id (not ad-hoc SQL)."""
+    payload: dict[str, object] = {"analytic_id": analytic_id, "principal": principal}
+    if version is not None:
+        payload["version"] = version
+    if row_limit is not None:
+        payload["row_limit"] = row_limit
+    if node is not None:
+        payload["node_id"] = node
+    response = httpx.post(f"{url.rstrip('/')}/analytics/run", json=payload, timeout=60.0)
+    if response.status_code >= 400:
+        _print_http_error(response)
+        raise typer.Exit(code=1)
+    body = response.json()
+    _print_json(body)
+    if out is not None and body.get("artifact"):
+        if node is not None and body.get("job"):
+            download = httpx.get(f"{url.rstrip('/')}/jobs/{body['job']['job_id']}/result", timeout=60.0)
+        else:
+            artifact_id = body["artifact"]["artifact_id"]
+            download = httpx.get(f"{url.rstrip('/')}/results/{artifact_id}", timeout=60.0)
+        download.raise_for_status()
+        out.write_bytes(download.content)
+        typer.echo(f"wrote {out}")
 
 
 def main() -> None:
