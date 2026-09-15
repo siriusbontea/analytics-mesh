@@ -7,6 +7,7 @@ requires-python = ">=3.12"
 dependencies = [
     "mesh-common",
     "mesh-node",
+    "mesh-plane",
     "mesh-client",
     "mesh-connector-local-files",
     "mesh-engine-duckdb",
@@ -23,6 +24,7 @@ build-backend = "hatchling.build"
 members = [
     "packages/mesh_common",
     "packages/mesh_node",
+    "packages/mesh_plane",
     "packages/mesh_client",
     "plugins/connectors/local_files",
     "plugins/engines/duckdb_engine",
@@ -31,6 +33,7 @@ members = [
 [tool.uv.sources]
 mesh-common = { workspace = true }
 mesh-node = { workspace = true }
+mesh-plane = { workspace = true }
 mesh-client = { workspace = true }
 mesh-connector-local-files = { workspace = true }
 mesh-engine-duckdb = { workspace = true }

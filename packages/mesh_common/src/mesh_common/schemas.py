@@ -80,3 +80,51 @@ class QueryRequest(BaseModel):
 class QueryResponse(BaseModel):
     artifact: ArtifactRef | None = None
     receipt: Receipt
+
+
+class NodeRegistrationRequest(BaseModel):
+    node_id: str
+    endpoint: str
+    public_key: str
+    labels: list[str] = Field(default_factory=list)
+    token: str
+    signed_at: str
+    signature: str
+
+
+class NodeRecord(BaseModel):
+    node_id: str
+    endpoint: str
+    public_key: str
+    labels: list[str] = Field(default_factory=list)
+    registered_at: datetime
+    last_seen: datetime | None = None
+
+
+class JobRecord(BaseModel):
+    job_id: str
+    node_id: str
+    action: str
+    status: Literal["queued", "running", "succeeded", "failed"]
+    principal: str
+    created_at: datetime
+    updated_at: datetime
+    artifact_id: str | None = None
+    artifact_pointer: str | None = None
+    receipt_id: str | None = None
+    receipt_pointer: str | None = None
+    sql_hash: str | None = None
+    error: str | None = None
+
+
+class PlaneQueryRequest(BaseModel):
+    node_id: str
+    sql: str
+    row_limit: int | None = None
+    principal: str = "local"
+
+
+class PlaneQueryResponse(BaseModel):
+    job: JobRecord
+    artifact: ArtifactRef | None = None
+    receipt: Receipt | None = None

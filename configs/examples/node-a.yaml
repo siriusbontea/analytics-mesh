@@ -1,0 +1,21 @@
+node_id: node-a
+artifact_dir: var/node-a/artifacts
+receipt_db: var/node-a/receipts.sqlite
+identity_key_path: var/node-a/identity.pem
+listen_host: 127.0.0.1
+listen_port: 8081
+labels: [personal]
+connectors:
+  - id: local_files
+    type: local_files
+    root: data/samples
+    labels: [personal]
+limits:
+  default_row_limit: 10000
+  max_row_limit: 100000
+  query_timeout_seconds: 30
+plane:
+  url: http://127.0.0.1:8090
+  token: demo-pair-token
+  register_on_start: true
+  public_endpoint: http://127.0.0.1:8081

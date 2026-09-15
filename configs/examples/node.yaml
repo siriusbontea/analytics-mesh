@@ -1,6 +1,7 @@
 node_id: local-dev
 artifact_dir: var/artifacts
 receipt_db: var/receipts.sqlite
+identity_key_path: var/local-dev.identity.pem
 listen_host: 127.0.0.1
 listen_port: 8080
 connectors:

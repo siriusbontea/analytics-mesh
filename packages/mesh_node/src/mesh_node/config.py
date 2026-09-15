@@ -21,29 +21,40 @@ class LimitsConfig(BaseModel):
     query_timeout_seconds: float = 30.0
 
 
+class PlaneClientConfig(BaseModel):
+    url: str
+    token: str
+    register_on_start: bool = True
+    public_endpoint: str | None = None
+
+
 class NodeConfig(BaseModel):
     node_id: str = "local-dev"
     artifact_dir: Path = Path("var/artifacts")
     receipt_db: Path = Path("var/receipts.sqlite")
+    identity_key_path: Path | None = None
+    labels: list[str] = Field(default_factory=list)
     connectors: list[ConnectorConfig] = Field(default_factory=list)
     limits: LimitsConfig = Field(default_factory=LimitsConfig)
     models: LlmProviderConfig = Field(default_factory=LlmProviderConfig)
     listen_host: str = "127.0.0.1"
     listen_port: int = 8080
+    plane: PlaneClientConfig | None = None
 
     def resolve_paths(self, base: Path) -> NodeConfig:
         def resolve(path: Path) -> Path:
             return path if path.is_absolute() else (base / path).resolve()
 
-        return self.model_copy(
-            update={
-                "artifact_dir": resolve(self.artifact_dir),
-                "receipt_db": resolve(self.receipt_db),
-                "connectors": [
-                    item.model_copy(update={"root": resolve(item.root)}) for item in self.connectors
-                ],
-            }
-        )
+        updates: dict[str, object] = {
+            "artifact_dir": resolve(self.artifact_dir),
+            "receipt_db": resolve(self.receipt_db),
+            "connectors": [
+                item.model_copy(update={"root": resolve(item.root)}) for item in self.connectors
+            ],
+        }
+        if self.identity_key_path is not None:
+            updates["identity_key_path"] = resolve(self.identity_key_path)
+        return self.model_copy(update=updates)
 
 
 def load_config(path: Path | str) -> NodeConfig:

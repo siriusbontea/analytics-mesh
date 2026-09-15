@@ -7,6 +7,7 @@ from uuid import uuid4
 import duckdb
 
 from mesh_common.hashing import sha256_text
+from mesh_common.identity import generate_keypair, load_or_create_keypair
 from mesh_common.receipts import ReceiptStore
 from mesh_common.schemas import ArtifactRef, ConnectorInfo, QueryPlan, QueryResponse, Receipt
 from mesh_connector_local_files import LocalFilesConnector
@@ -18,6 +19,11 @@ class NodeRuntime:
     def __init__(self, config: NodeConfig) -> None:
         self.config = config
         self.engine = DuckDBEngine()
+        self.identity = (
+            load_or_create_keypair(config.identity_key_path, config.node_id)
+            if config.identity_key_path is not None
+            else generate_keypair(config.node_id)
+        )
         self.receipts = ReceiptStore(config.receipt_db)
         self.connectors: dict[str, LocalFilesConnector] = {}
         for item in config.connectors:
