@@ -37,6 +37,9 @@ class NodeProxy:
     def list_analytics(self, endpoint: str) -> dict[str, object]:
         return self._get_json(endpoint, "/analytics")
 
+    def list_connectors(self, endpoint: str) -> dict[str, object]:
+        return self._get_json(endpoint, "/connectors")
+
     def models_status(self, endpoint: str, probe: bool = False) -> dict[str, object]:
         suffix = "/models?probe=true" if probe else "/models"
         return self._get_json(endpoint, suffix)

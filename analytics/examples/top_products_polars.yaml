@@ -1,0 +1,8 @@
+analytic_id: top_products_polars
+version: 1.0.0
+engine: polars
+entry: top_products.sql
+allowed_connectors:
+  - local_files
+description: Rank products by total sales amount (Polars engine)
+params_schema: {}

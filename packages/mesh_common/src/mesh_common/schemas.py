@@ -36,6 +36,16 @@ class ArtifactRef(BaseModel):
     column_names: list[str] = Field(default_factory=list)
 
 
+class ModelAttempt(BaseModel):
+    """One slot tried during an assist fallback chain."""
+
+    slot: str
+    provider: str
+    model: str
+    status: Literal["succeeded", "failed"]
+    error: str | None = None
+
+
 class Receipt(BaseModel):
     receipt_id: str
     ts: datetime
@@ -53,6 +63,9 @@ class Receipt(BaseModel):
     receipt_hash: str
     model_provider: str | None = None
     model_id: str | None = None
+    model_slot: str | None = None
+    model_fallback_used: bool = False
+    model_attempts: list[ModelAttempt] = Field(default_factory=list)
     error: str | None = None
 
 
@@ -165,6 +178,8 @@ class AssistNl2SqlResponse(BaseModel):
     message: str
     model_provider: str | None = None
     model_id: str | None = None
+    model_slot: str | None = None
+    model_fallback_used: bool = False
     receipt: Receipt | None = None
 
 
@@ -175,6 +190,8 @@ class AssistExplainResponse(BaseModel):
     message: str
     model_provider: str | None = None
     model_id: str | None = None
+    model_slot: str | None = None
+    model_fallback_used: bool = False
     receipt: Receipt | None = None
 
 

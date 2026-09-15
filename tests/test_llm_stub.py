@@ -93,6 +93,9 @@ def test_receipt_model_fields_default_none():
     )
     assert receipt.model_provider is None
     assert receipt.model_id is None
+    assert receipt.model_slot is None
+    assert receipt.model_fallback_used is False
+    assert receipt.model_attempts == []
 
 
 def test_llm_client_reports_slots():
@@ -102,3 +105,13 @@ def test_llm_client_reports_slots():
     assert names[0] == "main"
     assert "auxiliary" in names
     assert "fallback" in names
+
+
+def test_candidate_slots_preserve_main_then_fallback_order():
+    cfg = load_llm_config(Path("configs/examples/models.yaml"))
+    client = LlmClient(cfg)
+    names = [name for name, slot in client.candidate_slots("main", allow_frontier=True)]
+    assert names[0] == "main"
+    assert names[1] == "fallback"
+    local_only = client.candidate_slots("main", allow_frontier=False)
+    assert all(slot.provider == "local" for _name, slot in local_only)

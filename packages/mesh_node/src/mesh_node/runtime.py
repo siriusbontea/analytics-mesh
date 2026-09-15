@@ -23,6 +23,7 @@ from mesh_common.schemas import (
     AssistExplainResponse,
     AssistNl2SqlResponse,
     ConnectorInfo,
+    ModelAttempt,
     QueryPlan,
     QueryResponse,
     Receipt,
@@ -47,7 +48,8 @@ _EXPLAIN_SYSTEM = (
 class NodeRuntime:
     def __init__(self, config: NodeConfig) -> None:
         self.config = config
-        self.engine = DuckDBEngine()
+        self.engines = _load_engines()
+        self.engine = self.engines["duckdb"]
         self.identity = (
             load_or_create_keypair(config.identity_key_path, config.node_id)
             if config.identity_key_path is not None
@@ -146,6 +148,7 @@ class NodeRuntime:
             hash_payload=_analytic_hash_payload(spec),
             extra_params=_analytic_params(spec, params),
         )
+        extra = _analytic_params(spec, params)
         missing = [connector_id for connector_id in spec.allowed_connectors if connector_id not in self.connectors]
         if missing:
             return self._failed_response(
@@ -153,17 +156,18 @@ class NodeRuntime:
                 principal=principal,
                 row_limit=row_limit,
                 action="run_analytic",
-                extra_params=_analytic_params(spec, params),
+                extra_params=extra,
                 hash_payload=_analytic_hash_payload(spec),
                 error=f"analytic requires missing connectors: {', '.join(missing)}",
             )
-        if spec.engine != self.engine.id:
+        engine = self.engines.get(spec.engine)
+        if engine is None:
             return self._failed_response(
                 sql=spec.sql,
                 principal=principal,
                 row_limit=row_limit,
                 action="run_analytic",
-                extra_params=_analytic_params(spec, params),
+                extra_params=extra,
                 hash_payload=_analytic_hash_payload(spec),
                 error=f"unsupported engine: {spec.engine}",
             )
@@ -172,8 +176,9 @@ class NodeRuntime:
             principal=principal,
             row_limit=row_limit,
             action="run_analytic",
-            extra_params=_analytic_params(spec, params),
+            extra_params=extra,
             hash_payload=_analytic_hash_payload(spec),
+            engine=engine,
         )
 
     def propose_sql(self, question: str, principal: str) -> dict[str, object]:
@@ -212,7 +217,8 @@ class NodeRuntime:
             {"role": "user", "content": f"Catalog:\n{catalog}\n\nQuestion: {question}"},
         ]
         last_error = "model call failed"
-        for slot in slots:
+        attempts: list[ModelAttempt] = []
+        for slot_name, slot in slots:
             self._require(
                 principal=principal,
                 action="assist_nl2sql",
@@ -226,7 +232,25 @@ class NodeRuntime:
                 sql = validate_sql(extract_sql(raw))
             except (SqlGuardError, ValueError, OSError, RuntimeError, httpx.HTTPError) as exc:
                 last_error = str(exc)
+                attempts.append(
+                    ModelAttempt(
+                        slot=slot_name,
+                        provider=slot.provider,
+                        model=slot.model,
+                        status="failed",
+                        error=str(exc),
+                    )
+                )
                 continue
+            attempts.append(
+                ModelAttempt(
+                    slot=slot_name,
+                    provider=slot.provider,
+                    model=slot.model,
+                    status="succeeded",
+                )
+            )
+            fallback_used = slot_name.startswith("fallback")
             receipt = self._assist_receipt(
                 principal=principal,
                 action="assist_nl2sql",
@@ -234,6 +258,9 @@ class NodeRuntime:
                 extra_params={"question": question, "sql": sql},
                 model_provider=slot.provider,
                 model_id=slot.model,
+                model_slot=slot_name,
+                model_fallback_used=fallback_used,
+                model_attempts=attempts,
                 status="succeeded",
             )
             return AssistNl2SqlResponse(
@@ -244,6 +271,8 @@ class NodeRuntime:
                 message="Proposed SQL only. Confirm explicitly before running; this endpoint never executes SQL.",
                 model_provider=slot.provider,
                 model_id=slot.model,
+                model_slot=slot_name,
+                model_fallback_used=fallback_used,
                 receipt=receipt,
             ).model_dump(mode="json")
 
@@ -254,6 +283,7 @@ class NodeRuntime:
             extra_params={"question": question},
             status="failed",
             error=last_error,
+            model_attempts=attempts,
         )
         return AssistNl2SqlResponse(
             used=False,
@@ -300,7 +330,8 @@ class NodeRuntime:
             },
         ]
         last_error = "model call failed"
-        for slot in slots:
+        attempts: list[ModelAttempt] = []
+        for slot_name, slot in slots:
             self._require(
                 principal=principal,
                 action="assist_explain",
@@ -312,7 +343,25 @@ class NodeRuntime:
                 text = self.llm.complete(slot, messages, timeout=60.0)
             except (ValueError, OSError, RuntimeError, httpx.HTTPError) as exc:
                 last_error = str(exc)
+                attempts.append(
+                    ModelAttempt(
+                        slot=slot_name,
+                        provider=slot.provider,
+                        model=slot.model,
+                        status="failed",
+                        error=str(exc),
+                    )
+                )
                 continue
+            attempts.append(
+                ModelAttempt(
+                    slot=slot_name,
+                    provider=slot.provider,
+                    model=slot.model,
+                    status="succeeded",
+                )
+            )
+            fallback_used = slot_name.startswith("fallback")
             receipt = self._assist_receipt(
                 principal=principal,
                 action="assist_explain",
@@ -320,6 +369,9 @@ class NodeRuntime:
                 extra_params={"artifact_id": artifact_id},
                 model_provider=slot.provider,
                 model_id=slot.model,
+                model_slot=slot_name,
+                model_fallback_used=fallback_used,
+                model_attempts=attempts,
                 status="succeeded",
             )
             return AssistExplainResponse(
@@ -329,13 +381,25 @@ class NodeRuntime:
                 message="Explain assist used a capped preview only.",
                 model_provider=slot.provider,
                 model_id=slot.model,
+                model_slot=slot_name,
+                model_fallback_used=fallback_used,
                 receipt=receipt,
             ).model_dump(mode="json")
 
+        receipt = self._assist_receipt(
+            principal=principal,
+            action="assist_explain",
+            hash_payload=artifact_id or "",
+            extra_params={"artifact_id": artifact_id},
+            status="failed",
+            error=last_error,
+            model_attempts=attempts,
+        )
         return AssistExplainResponse(
             used=False,
             artifact_id=artifact_id,
             message=last_error,
+            receipt=receipt,
         ).model_dump(mode="json")
 
     def explain_stub(self, artifact_id: str | None = None) -> dict[str, object]:
@@ -463,7 +527,9 @@ class NodeRuntime:
         policy_timeout: float | None = None,
         model_provider: str | None = None,
         model_id: str | None = None,
+        engine: Any | None = None,
     ) -> QueryResponse:
+        engine = engine or self.engine
         limits = self.config.limits
         applied_limit = min(row_limit or limits.default_row_limit, limits.max_row_limit)
         if policy_row_limit is not None:
@@ -480,7 +546,7 @@ class NodeRuntime:
         error: str | None = None
         status: str = "succeeded"
         try:
-            artifact = self.engine.execute(
+            artifact = engine.execute(
                 QueryPlan(
                     sql=sql,
                     row_limit=applied_limit,
@@ -509,7 +575,7 @@ class NodeRuntime:
                 action=action,
                 analytic_or_sql_hash=sha256_text(hash_payload),
                 connector_versions=connector_versions,
-                engine_version=self.engine.version,
+                engine_version=engine.version,
                 params=params,
                 artifact_hash=artifact.sha256 if artifact else None,
                 artifact_id=artifact.artifact_id if artifact else None,
@@ -566,6 +632,9 @@ class NodeRuntime:
         error: str | None = None,
         model_provider: str | None = None,
         model_id: str | None = None,
+        model_slot: str | None = None,
+        model_fallback_used: bool = False,
+        model_attempts: list[ModelAttempt] | None = None,
     ) -> Receipt:
         return self.receipts.append(
             Receipt(
@@ -583,9 +652,23 @@ class NodeRuntime:
                 receipt_hash="",
                 model_provider=model_provider,
                 model_id=model_id,
+                model_slot=model_slot,
+                model_fallback_used=model_fallback_used,
+                model_attempts=list(model_attempts or []),
                 error=error,
             )
         )
+
+
+def _load_engines() -> dict[str, Any]:
+    engines: dict[str, Any] = {"duckdb": DuckDBEngine()}
+    try:
+        from mesh_engine_polars import PolarsEngine
+
+        engines["polars"] = PolarsEngine()
+    except ImportError:
+        pass
+    return engines
 
 
 def _build_connector(item: ConnectorConfig):
@@ -614,6 +697,7 @@ def _analytic_params(spec: AnalyticSpec, params: dict[str, Any] | None) -> dict[
     return {
         "analytic_id": spec.analytic_id,
         "version": spec.version,
+        "engine": spec.engine,
         "sql": spec.sql,
         "params": params or {},
     }

@@ -12,10 +12,15 @@ dependencies = [
     "mesh-connector-local-files",
     "mesh-connector-postgres",
     "mesh-engine-duckdb",
+    "mesh-engine-polars",
+    "mesh-mcp",
 ]
 
 [project.scripts]
 mesh = "mesh_client.cli:app"
+mesh-node = "mesh_node.__main__:main"
+mesh-plane = "mesh_plane.__main__:main"
+mesh-mcp = "mesh_mcp.__main__:main"
 
 [build-system]
 requires = ["hatchling"]
@@ -27,9 +32,11 @@ members = [
     "packages/mesh_node",
     "packages/mesh_plane",
     "packages/mesh_client",
+    "packages/mesh_mcp",
     "plugins/connectors/local_files",
     "plugins/connectors/postgres",
     "plugins/engines/duckdb_engine",
+    "plugins/engines/polars_engine",
 ]
 
 [tool.uv.sources]
@@ -37,9 +44,11 @@ mesh-common = { workspace = true }
 mesh-node = { workspace = true }
 mesh-plane = { workspace = true }
 mesh-client = { workspace = true }
+mesh-mcp = { workspace = true }
 mesh-connector-local-files = { workspace = true }
 mesh-connector-postgres = { workspace = true }
 mesh-engine-duckdb = { workspace = true }
+mesh-engine-polars = { workspace = true }
 
 [dependency-groups]
 dev = [

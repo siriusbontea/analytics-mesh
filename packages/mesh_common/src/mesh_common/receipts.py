@@ -29,9 +29,18 @@ CREATE TABLE IF NOT EXISTS receipts (
     receipt_hash TEXT NOT NULL,
     model_provider TEXT,
     model_id TEXT,
+    model_slot TEXT,
+    model_fallback_used INTEGER NOT NULL DEFAULT 0,
+    model_attempts TEXT NOT NULL DEFAULT '[]',
     error TEXT
 )
 """
+
+_MIGRATIONS = (
+    ("model_slot", "ALTER TABLE receipts ADD COLUMN model_slot TEXT"),
+    ("model_fallback_used", "ALTER TABLE receipts ADD COLUMN model_fallback_used INTEGER NOT NULL DEFAULT 0"),
+    ("model_attempts", "ALTER TABLE receipts ADD COLUMN model_attempts TEXT NOT NULL DEFAULT '[]'"),
+)
 
 
 def _canonical_ts(value: datetime | str) -> str:
@@ -58,6 +67,10 @@ class ReceiptStore:
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         with self._connect() as conn:
             conn.execute(_CREATE_SQL)
+            cols = {row[1] for row in conn.execute("PRAGMA table_info(receipts)").fetchall()}
+            for name, ddl in _MIGRATIONS:
+                if name not in cols:
+                    conn.execute(ddl)
             conn.commit()
 
     def _connect(self) -> sqlite3.Connection:
@@ -83,8 +96,9 @@ class ReceiptStore:
                 INSERT INTO receipts (
                     receipt_id, ts, principal, node_id, action, analytic_or_sql_hash,
                     connector_versions, engine_version, params, artifact_hash, artifact_id,
-                    status, prev_hash, receipt_hash, model_provider, model_id, error
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    status, prev_hash, receipt_hash, model_provider, model_id,
+                    model_slot, model_fallback_used, model_attempts, error
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     complete.receipt_id,
@@ -103,6 +117,9 @@ class ReceiptStore:
                     complete.receipt_hash,
                     complete.model_provider,
                     complete.model_id,
+                    complete.model_slot,
+                    1 if complete.model_fallback_used else 0,
+                    json.dumps([item.model_dump(mode="json") for item in complete.model_attempts]),
                     complete.error,
                 ),
             )
@@ -165,6 +182,9 @@ class ReceiptStore:
                 "receipt_hash": row["receipt_hash"],
                 "model_provider": row["model_provider"],
                 "model_id": row["model_id"],
+                "model_slot": row["model_slot"] if "model_slot" in row.keys() else None,
+                "model_fallback_used": bool(row["model_fallback_used"]) if "model_fallback_used" in row.keys() else False,
+                "model_attempts": json.loads(row["model_attempts"]) if "model_attempts" in row.keys() and row["model_attempts"] else [],
                 "error": row["error"],
             }
         )

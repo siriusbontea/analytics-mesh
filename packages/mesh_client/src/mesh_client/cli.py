@@ -10,7 +10,7 @@ import uvicorn
 
 app = typer.Typer(
     name="mesh",
-    help="Analytics Mesh CLI: serve a node or plane, query, run analytics, propose SQL, and inspect receipts.",
+    help="Analytics Mesh CLI: serve a node or plane, query, run analytics, MCP, propose SQL, and inspect receipts.",
     no_args_is_help=True,
 )
 analytics_app = typer.Typer(help="List and run registered analytics.")
@@ -179,6 +179,28 @@ def jobs(url: str = typer.Option("http://127.0.0.1:8090", "--url", help="Control
     response = httpx.get(f"{url.rstrip('/')}/jobs", timeout=10.0)
     response.raise_for_status()
     _print_json(response.json())
+
+
+@app.command()
+def mcp(
+    url: str = typer.Option("http://127.0.0.1:8080", "--url", envvar="MESH_URL", help="Node or plane URL"),
+    node: Optional[str] = typer.Option(None, "--node", envvar="MESH_NODE", help="Target node id when talking to the plane"),
+    principal: str = typer.Option("local", "--principal", envvar="MESH_PRINCIPAL"),
+    transport: str = typer.Option(
+        "stdio",
+        "--transport",
+        help="stdio (desktop MCP clients), http (JSON /tools), or streamable-http (MCP HTTP)",
+    ),
+    host: str = typer.Option("127.0.0.1", "--host", envvar="MESH_MCP_HOST"),
+    port: int = typer.Option(8765, "--port", envvar="MESH_MCP_PORT"),
+) -> None:
+    """Start the analytics-only MCP adapter (list_analytics / run_analytic / get_receipt)."""
+    from mesh_mcp.server import run_server
+
+    if transport == "http":
+        typer.echo(f"MCP HTTP on http://{host}:{port} (tools at /tools, POST /tools/{{name}})")
+        typer.echo(f"upstream mesh: {url}" + (f" node={node}" if node else ""))
+    run_server(url=url, principal=principal, node_id=node, transport=transport, host=host, port=port)
 
 
 @app.command()
