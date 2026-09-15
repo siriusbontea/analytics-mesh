@@ -447,7 +447,9 @@
     }
 
     function isMissing(value) {
-      return value == null || (typeof value === "string" && value.trim() === "");
+      if (value == null || (typeof value === "string" && value.trim() === "")) return true;
+      if (typeof value === "number" && !Number.isFinite(value)) return true;
+      return false;
     }
 
     function asNumber(value) {

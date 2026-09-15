@@ -96,4 +96,8 @@ def _as_number(value: Any) -> float | None:
 
 
 def _is_missing(value: Any) -> bool:
-    return value is None or (isinstance(value, str) and value.strip() == "")
+    if value is None or (isinstance(value, str) and value.strip() == ""):
+        return True
+    if isinstance(value, float) and not math.isfinite(value):
+        return True
+    return False
