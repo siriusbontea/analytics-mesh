@@ -243,8 +243,15 @@ def test_plane_serves_ui(tmp_path: Path):
     client = TestClient(create_plane_app(_plane_config(tmp_path)))
     response = client.get("/ui")
     assert response.status_code == 200
-    assert "Analytics Mesh" in response.text
-    assert "node" in response.text.lower()
+    html = response.text
+    assert "Analytics Mesh" in html
+    assert "node" in html.lower()
+    assert 'id="principal"' in html
+    assert 'id="jobsPanel"' in html
+    assert "/jobs" in html
+    assert "/nodes/" in html and "/connectors" in html
+    assert "verify chain" in html.lower()
+    assert 'id="chartPreview"' in html
 
 
 def test_plane_health(tmp_path: Path):

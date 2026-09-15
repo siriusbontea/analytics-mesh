@@ -65,6 +65,17 @@
 
 **Exit:** MCP tools policy-gated; Polars example green; fallback receipts recorded; `uv run pytest` green.
 
-## 6. Not in M5 / v1
+## 6. M6 tasks (implemented)
+
+1. Polish the shared static `/ui` (node + plane): Run / Result / Receipt as equal panels, sticky primary actions, `prefers-color-scheme` + theme toggle, clearer mobile / loading / error states.
+2. Connectors panel (`GET /connectors` or plane `GET /nodes/{id}/connectors`) and, on the plane, recent jobs (`GET /jobs`) with deep-link to result.
+3. Receipt UX: copy id, verify chain, collapsed summary + raw JSON.
+4. Editable principal (default `web`) on run / assist.
+5. Light SVG bar chart for previews with a label column + numeric column (`pick_bar_chart` heuristic). No chart libraries.
+6. Tests: `/ui` still served; chart heuristic unit tests; existing pytest suite green. README M6 note.
+
+**Exit:** Smoke-testable UI on node and plane; `uv run pytest` green.
+
+## 7. Not in M6 / v1
 
 Federated learning, Hermes learning loop, messaging gateways, full OPA deployment, Axonis decision graph UI.
