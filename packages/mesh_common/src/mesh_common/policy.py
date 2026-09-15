@@ -105,9 +105,8 @@ class YamlPolicy(PolicyEngine):
         analytic_id: str | None = None,
         model_provider: str | None = None,
     ) -> PolicyDecision:
-        rule = self.principals.get(principal)
-        if rule is None and self.default_principal:
-            rule = self.principals.get(self.default_principal)
+        lookup = principal or self.default_principal or ""
+        rule = self.principals.get(lookup)
         if rule is None:
             if self.deny_unknown_principals:
                 return PolicyDecision(allowed=False, reason=f"unknown principal: {principal}")

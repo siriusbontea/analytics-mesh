@@ -70,6 +70,14 @@ def test_unknown_principal_denied():
     assert "unknown principal" in (decision.reason or "").lower()
 
 
+def test_default_principal_does_not_alias_unknown_names():
+    policy = load_policy(REPO / "configs/examples/policy.yaml")
+    denied = policy.authorize(principal="ghost", action="run_query", node_id="local-dev")
+    assert denied.allowed is False
+    allowed = policy.authorize(principal="", action="run_query", node_id="local-dev")
+    assert allowed.allowed is True
+
+
 def test_viewer_cannot_run_adhoc_sql():
     policy = YamlPolicy.from_yaml(RESTRICTIVE)
     decision = policy.authorize(
