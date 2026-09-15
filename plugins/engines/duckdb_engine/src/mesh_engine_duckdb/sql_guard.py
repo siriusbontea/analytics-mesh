@@ -8,6 +8,7 @@ class SqlGuardError(ValueError):
 
 _COMMENT_LINE = re.compile(r"--[^\n]*")
 _COMMENT_BLOCK = re.compile(r"/\*.*?\*/", re.DOTALL)
+_STRING_LITERAL = re.compile(r"'(?:''|[^'])*'")
 _FORBIDDEN = re.compile(
     r"\b("
     r"ATTACH|DETACH|INSTALL|LOAD|PRAGMA|CREATE|DROP|INSERT|UPDATE|DELETE|ALTER|"
@@ -29,10 +30,11 @@ def validate_sql(sql: str) -> str:
     stripped = strip_sql_comments(sql).strip()
     if not stripped:
         raise SqlGuardError("empty SQL")
-    if ";" in stripped.rstrip(";"):
-        raise SqlGuardError("multiple statements are not allowed")
     stripped = stripped.rstrip(";").strip()
-    if _FORBIDDEN.search(stripped):
+    scan = _STRING_LITERAL.sub("''", stripped)
+    if ";" in scan:
+        raise SqlGuardError("multiple statements are not allowed")
+    if _FORBIDDEN.search(scan):
         raise SqlGuardError("SQL contains a disallowed statement or file function")
     if not re.match(r"^(SELECT|WITH)\b", stripped, re.IGNORECASE):
         raise SqlGuardError("only SELECT / WITH queries are allowed")

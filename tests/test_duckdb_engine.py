@@ -56,3 +56,33 @@ def test_rejects_file_read_function(data_dir: Path, tmp_path: Path):
     engine = DuckDBEngine()
     with pytest.raises(SqlGuardError):
         engine.execute(_plan(data_dir, tmp_path / "artifacts", "SELECT * FROM read_csv_auto('sales.csv')"))
+
+
+def test_allows_forbidden_keyword_inside_string_literal(data_dir: Path, tmp_path: Path):
+    engine = DuckDBEngine()
+    artifact = engine.execute(
+        _plan(
+            data_dir,
+            tmp_path / "artifacts",
+            "SELECT * FROM sales WHERE product = 'INSERT'",
+        )
+    )
+    assert artifact.row_count == 0
+
+
+def test_allows_semicolon_inside_string_literal(data_dir: Path, tmp_path: Path):
+    engine = DuckDBEngine()
+    artifact = engine.execute(
+        _plan(
+            data_dir,
+            tmp_path / "artifacts",
+            "SELECT * FROM sales WHERE product = 'a;b'",
+        )
+    )
+    assert artifact.row_count == 0
+
+
+def test_rejects_multiple_statements(data_dir: Path, tmp_path: Path):
+    engine = DuckDBEngine()
+    with pytest.raises(SqlGuardError):
+        engine.execute(_plan(data_dir, tmp_path / "artifacts", "SELECT * FROM sales; SELECT 1"))
