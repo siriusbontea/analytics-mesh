@@ -1,0 +1,14 @@
+[project]
+name = "mesh-engine-duckdb"
+version = "0.1.0"
+description = "Sandboxed DuckDB SQL engine"
+requires-python = ">=3.12"
+dependencies = [
+    "mesh-common",
+    "duckdb>=1.1",
+    "pyarrow>=17.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

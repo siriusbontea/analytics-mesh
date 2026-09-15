@@ -1,0 +1,13 @@
+[project]
+name = "mesh-connector-local-files"
+version = "0.1.0"
+description = "Local CSV/Parquet/JSON directory connector"
+requires-python = ">=3.12"
+dependencies = [
+    "mesh-common",
+    "pyarrow>=17.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

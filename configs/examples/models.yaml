@@ -1,0 +1,18 @@
+# Optional OpenAI-compatible providers. M1 analytics does not load this file.
+# Copy fields into node.yaml under `models:` when you add assist features later.
+main:
+  provider: local
+  base_url: http://127.0.0.1:11434/v1
+  model: qwen2.5-coder:14b
+auxiliary:
+  provider: local
+  base_url: http://127.0.0.1:11434/v1
+  model: qwen2.5:7b
+fallback:
+  - provider: frontier
+    base_url: https://openrouter.ai/api/v1
+    model: anthropic/claude-sonnet-4
+    api_key_env: OPENROUTER_API_KEY
+policy:
+  default_mode: local_only
+  allow_frontier_analytics: []

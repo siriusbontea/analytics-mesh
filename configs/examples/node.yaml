@@ -1,0 +1,15 @@
+node_id: local-dev
+artifact_dir: var/artifacts
+receipt_db: var/receipts.sqlite
+listen_host: 127.0.0.1
+listen_port: 8080
+connectors:
+  - id: local_files
+    type: local_files
+    root: data/samples
+    labels: [personal]
+limits:
+  default_row_limit: 10000
+  max_row_limit: 100000
+  query_timeout_seconds: 30
+# models: leave unset so analytics runs with zero LLM configured

@@ -1,0 +1,47 @@
+[project]
+name = "analytics-mesh"
+version = "0.1.0"
+description = "Query-first local analytics mesh"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "mesh-common",
+    "mesh-node",
+    "mesh-client",
+    "mesh-connector-local-files",
+    "mesh-engine-duckdb",
+]
+
+[project.scripts]
+mesh = "mesh_client.cli:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv.workspace]
+members = [
+    "packages/mesh_common",
+    "packages/mesh_node",
+    "packages/mesh_client",
+    "plugins/connectors/local_files",
+    "plugins/engines/duckdb_engine",
+]
+
+[tool.uv.sources]
+mesh-common = { workspace = true }
+mesh-node = { workspace = true }
+mesh-client = { workspace = true }
+mesh-connector-local-files = { workspace = true }
+mesh-engine-duckdb = { workspace = true }
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "httpx>=0.27",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
