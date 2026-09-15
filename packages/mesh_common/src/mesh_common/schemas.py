@@ -71,6 +71,33 @@ class QueryPlan(BaseModel):
     tables: list[TableSchema] = Field(default_factory=list)
 
 
+class ResultPreview(BaseModel):
+    columns: list[str] = Field(default_factory=list)
+    rows: list[dict[str, Any]] = Field(default_factory=list)
+    row_count: int = 0
+    truncated: bool = False
+
+
+class AnalyticSpec(BaseModel):
+    analytic_id: str
+    version: str
+    engine: str = "duckdb"
+    entry: str
+    sql: str
+    allowed_connectors: list[str] = Field(default_factory=list)
+    description: str = ""
+    params_schema: dict[str, Any] = Field(default_factory=dict)
+    path: str | None = None
+
+
+class AnalyticRunRequest(BaseModel):
+    analytic_id: str
+    version: str | None = None
+    params: dict[str, Any] = Field(default_factory=dict)
+    row_limit: int | None = None
+    principal: str = "local"
+
+
 class QueryRequest(BaseModel):
     sql: str
     row_limit: int | None = None
@@ -80,6 +107,7 @@ class QueryRequest(BaseModel):
 class QueryResponse(BaseModel):
     artifact: ArtifactRef | None = None
     receipt: Receipt
+    preview: ResultPreview | None = None
 
 
 class NodeRegistrationRequest(BaseModel):
@@ -124,7 +152,17 @@ class PlaneQueryRequest(BaseModel):
     principal: str = "local"
 
 
+class PlaneAnalyticRunRequest(BaseModel):
+    node_id: str
+    analytic_id: str
+    version: str | None = None
+    params: dict[str, Any] = Field(default_factory=dict)
+    row_limit: int | None = None
+    principal: str = "local"
+
+
 class PlaneQueryResponse(BaseModel):
     job: JobRecord
     artifact: ArtifactRef | None = None
     receipt: Receipt | None = None
+    preview: ResultPreview | None = None

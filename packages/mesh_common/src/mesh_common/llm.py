@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Literal
 
+import httpx
 import yaml
 from pydantic import BaseModel, Field
 
@@ -22,7 +24,7 @@ class LlmPolicyConfig(BaseModel):
 
 
 class LlmProviderConfig(BaseModel):
-    """Config shape for later NL→SQL / explain assist. Unused by M1 analytics."""
+    """OpenAI-compatible provider slots. Analytics work with this empty."""
 
     main: LlmSlotConfig | None = None
     auxiliary: LlmSlotConfig | None = None
@@ -33,14 +35,95 @@ class LlmProviderConfig(BaseModel):
         return self.main is not None
 
 
+class ModelProbeResult(BaseModel):
+    ok: bool
+    provider: str
+    model: str
+    base_url: str
+    models: list[str] = Field(default_factory=list)
+    error: str | None = None
+
+
+def slot_headers(slot: LlmSlotConfig) -> dict[str, str]:
+    if not slot.api_key_env:
+        return {}
+    key = os.environ.get(slot.api_key_env)
+    if not key:
+        return {}
+    return {"Authorization": f"Bearer {key}"}
+
+
+def probe_models(base_url: str, api_key: str | None = None, timeout: float = 5.0) -> list[str]:
+    """GET {base_url}/models (OpenAI-compatible, e.g. http://127.0.0.1:11434/v1)."""
+    headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
+    response = httpx.get(f"{base_url.rstrip('/')}/models", headers=headers, timeout=timeout)
+    response.raise_for_status()
+    payload = response.json()
+    return [item["id"] for item in payload.get("data", []) if isinstance(item, dict) and item.get("id")]
+
+
+def assist_attribution(slot: LlmSlotConfig | None) -> dict[str, str | None]:
+    """Receipt fields for an assist path. Core query/analytic runs pass None."""
+    if slot is None:
+        return {"model_provider": None, "model_id": None}
+    return {"model_provider": slot.provider, "model_id": slot.model}
+
+
+class OpenAICompatibleClient:
+    """One interface for Ollama, LM Studio, vLLM, OpenRouter, and other /v1 backends."""
+
+    def __init__(self, slot: LlmSlotConfig, timeout: float = 5.0) -> None:
+        self.slot = slot
+        self.timeout = timeout
+
+    def list_models(self) -> list[str]:
+        api_key = os.environ.get(self.slot.api_key_env) if self.slot.api_key_env else None
+        return probe_models(self.slot.base_url, api_key=api_key, timeout=self.timeout)
+
+    def probe(self) -> ModelProbeResult:
+        try:
+            models = self.list_models()
+            return ModelProbeResult(
+                ok=True,
+                provider=self.slot.provider,
+                model=self.slot.model,
+                base_url=self.slot.base_url,
+                models=models,
+            )
+        except (httpx.HTTPError, ValueError, KeyError, TypeError) as exc:
+            return ModelProbeResult(
+                ok=False,
+                provider=self.slot.provider,
+                model=self.slot.model,
+                base_url=self.slot.base_url,
+                error=str(exc),
+            )
+
+
 class LlmClient:
-    """Stub client. Analytics must not require this to be configured."""
+    """Config + optional probe. Analytics must not require this to be configured."""
 
     def __init__(self, config: LlmProviderConfig | None = None) -> None:
         self.config = config or LlmProviderConfig()
 
     def is_configured(self) -> bool:
         return self.config.is_configured()
+
+    def slots(self) -> list[tuple[str, LlmSlotConfig]]:
+        items: list[tuple[str, LlmSlotConfig]] = []
+        if self.config.main is not None:
+            items.append(("main", self.config.main))
+        if self.config.auxiliary is not None:
+            items.append(("auxiliary", self.config.auxiliary))
+        for index, slot in enumerate(self.config.fallback):
+            items.append((f"fallback" if index == 0 else f"fallback[{index}]", slot))
+        return items
+
+    def probe(self, slot_name: str = "main") -> ModelProbeResult | None:
+        for name, slot in self.slots():
+            if name == slot_name or (slot_name == "fallback" and name.startswith("fallback")):
+                return OpenAICompatibleClient(slot).probe()
+        return None
 
 
 def load_llm_config(path: Path | str) -> LlmProviderConfig:

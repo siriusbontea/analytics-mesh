@@ -3,7 +3,7 @@ from __future__ import annotations
 import httpx
 from fastapi import HTTPException
 
-from mesh_common.schemas import QueryRequest, QueryResponse, Receipt
+from mesh_common.schemas import AnalyticRunRequest, QueryRequest, QueryResponse, Receipt
 
 
 class NodeProxy:
@@ -23,6 +23,33 @@ class NodeProxy:
             raise HTTPException(status_code=response.status_code, detail=detail)
         return QueryResponse.model_validate(response.json())
 
+    def run_analytic(self, endpoint: str, request: AnalyticRunRequest) -> QueryResponse:
+        url = f"{endpoint.rstrip('/')}/analytics/run"
+        response = httpx.post(url, json=request.model_dump(mode="json"), timeout=self.timeout)
+        if response.status_code >= 400:
+            detail = _json_or_text(response)
+            receipt = _receipt_from_error(detail)
+            if receipt is not None:
+                return QueryResponse(artifact=None, receipt=receipt)
+            raise HTTPException(status_code=response.status_code, detail=detail)
+        return QueryResponse.model_validate(response.json())
+
+    def list_analytics(self, endpoint: str) -> dict[str, object]:
+        return self._get_json(endpoint, "/analytics")
+
+    def models_status(self, endpoint: str, probe: bool = False) -> dict[str, object]:
+        suffix = "/models?probe=true" if probe else "/models"
+        return self._get_json(endpoint, suffix)
+
+    def assist_explain(self, endpoint: str, payload: dict[str, object]) -> dict[str, object]:
+        response = httpx.post(f"{endpoint.rstrip('/')}/assist/explain", json=payload, timeout=self.timeout)
+        if response.status_code >= 400:
+            raise HTTPException(status_code=response.status_code, detail=_json_or_text(response))
+        return response.json()
+
+    def preview(self, endpoint: str, artifact_id: str) -> dict[str, object]:
+        return self._get_json(endpoint, f"/results/{artifact_id}/preview")
+
     def get_receipt(self, endpoint: str, receipt_id: str) -> dict[str, object]:
         response = httpx.get(f"{endpoint.rstrip('/')}/receipts/{receipt_id}", timeout=self.timeout)
         if response.status_code == 404:
@@ -32,6 +59,13 @@ class NodeProxy:
 
     def verify_chain(self, endpoint: str) -> dict[str, object]:
         response = httpx.get(f"{endpoint.rstrip('/')}/receipts/chain", timeout=self.timeout)
+        response.raise_for_status()
+        return response.json()
+
+    def _get_json(self, endpoint: str, path: str) -> dict[str, object]:
+        response = httpx.get(f"{endpoint.rstrip('/')}{path}", timeout=self.timeout)
+        if response.status_code == 404:
+            raise HTTPException(status_code=404, detail=_json_or_text(response))
         response.raise_for_status()
         return response.json()
 

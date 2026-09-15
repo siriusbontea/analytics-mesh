@@ -19,6 +19,8 @@ def test_example_node_configs_point_at_separate_data():
     assert "babylon-sprocket" in (REPO / "data/samples/node-b/sales.csv").read_text()
     assert node_a.identity_key_path != node_b.identity_key_path
     assert node_a.plane is not None and node_b.plane is not None
+    assert node_a.analytics_dir == node_b.analytics_dir
+    assert (REPO / "analytics/examples/top_products.yaml").is_file()
 
 
 def test_example_plane_config_loads():

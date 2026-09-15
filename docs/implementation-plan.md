@@ -38,10 +38,15 @@
 
 **Exit:** From a client, run SQL on Node B via the plane; artifact and receipt live on B.
 
-## 3. LLM config (later)
+## 3. M3 tasks (implemented)
 
-Analytics works with **zero** LLM configured. `configs/examples/models.yaml` documents the shape (main / auxiliary / fallback, `local_only` by default). Assist features degrade if no model is up. Do not commit secrets.
+1. Analytic registry: YAML + SQL under `analytics/`, semver, `list` + `run` by id
+2. Node/plane web UI at `/ui` (node pick via plane, analytic or SQL, table, artifact, receipt)
+3. OpenAI-compatible client + `configs/examples/models.yaml` (main / auxiliary / fallback); optional `GET /models?probe=true`
+4. Receipt `model_provider` / `model_id` only when an assist path is used (M3 assist is a stub)
 
-## 4. Not in M2
+**Exit:** Registry load and run-by-id tests pass; UI/API smoke; analytics work with zero LLM.
 
-Web UI / analytic registry (M3), Postgres, NL→SQL, policy engine (M4), MCP (M5), federated learning, enterprise decision UI.
+## 4. Not in M3
+
+YAML policy engine, Postgres connector, NL→SQL with confirm (M4), MCP + Polars (M5), federated learning, Hermes learning loop, messaging gateways.

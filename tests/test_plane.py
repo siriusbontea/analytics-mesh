@@ -195,6 +195,58 @@ def test_plane_job_unknown_node_fails(tmp_path: Path):
     assert job[0]["node_id"] == "missing"
 
 
+def test_plane_lists_and_runs_analytic_on_node(tmp_path: Path, sales_csv_text: str):
+    data = tmp_path / "data"
+    data.mkdir()
+    (data / "sales.csv").write_text(sales_csv_text)
+    node_cfg = NodeConfig(
+        node_id="node-b",
+        artifact_dir=tmp_path / "artifacts-b",
+        receipt_db=tmp_path / "receipts-b.sqlite",
+        identity_key_path=tmp_path / "node-b.ed25519",
+        connectors=[ConnectorConfig(id="local_files", type="local_files", root=data)],
+        limits=LimitsConfig(default_row_limit=100, max_row_limit=1000, query_timeout_seconds=10),
+        analytics_dir=Path(__file__).resolve().parents[1] / "analytics",
+    )
+    server = uvicorn.Server(uvicorn.Config(create_node_app(node_cfg), host="127.0.0.1", port=0, log_level="error"))
+    thread = threading.Thread(target=server.run, daemon=True)
+    thread.start()
+    try:
+        for _ in range(50):
+            if server.started:
+                break
+            thread.join(0.05)
+        assert server.started
+        endpoint = f"http://127.0.0.1:{server.servers[0].sockets[0].getsockname()[1]}"
+        plane = TestClient(create_plane_app(_plane_config(tmp_path)))
+        keys = load_or_create_keypair(node_cfg.identity_key_path, "node-b")
+        assert plane.post("/nodes/register", json=_registration(keys, endpoint, "demo-pair-token")).status_code == 200
+
+        listed = plane.get("/nodes/node-b/analytics")
+        assert listed.status_code == 200
+        assert {item["analytic_id"] for item in listed.json()["analytics"]} >= {"top_products"}
+
+        ran = plane.post("/analytics/run", json={"node_id": "node-b", "analytic_id": "top_products", "principal": "tester"})
+        assert ran.status_code == 200
+        body = ran.json()
+        assert body["job"]["action"] == "run_analytic"
+        assert body["job"]["node_id"] == "node-b"
+        assert body["receipt"]["action"] == "run_analytic"
+        assert body["preview"]["row_count"] == 3
+        assert body["receipt"]["model_provider"] is None
+    finally:
+        server.should_exit = True
+        thread.join(timeout=5)
+
+
+def test_plane_serves_ui(tmp_path: Path):
+    client = TestClient(create_plane_app(_plane_config(tmp_path)))
+    response = client.get("/ui")
+    assert response.status_code == 200
+    assert "Analytics Mesh" in response.text
+    assert "node" in response.text.lower()
+
+
 def test_plane_health(tmp_path: Path):
     client = TestClient(create_plane_app(_plane_config(tmp_path)))
     response = client.get("/health")

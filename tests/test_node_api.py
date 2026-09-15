@@ -10,6 +10,8 @@ from mesh_common.receipts import ReceiptStore
 from mesh_node.app import create_app
 from mesh_node.config import ConnectorConfig, LimitsConfig, NodeConfig
 
+REPO = Path(__file__).resolve().parents[1]
+
 
 def _config(tmp_path: Path, data_dir: Path) -> NodeConfig:
     return NodeConfig(
@@ -18,6 +20,7 @@ def _config(tmp_path: Path, data_dir: Path) -> NodeConfig:
         receipt_db=tmp_path / "receipts.sqlite",
         connectors=[ConnectorConfig(id="local_files", type="local_files", root=data_dir, labels=["personal"])],
         limits=LimitsConfig(default_row_limit=100, max_row_limit=1000, query_timeout_seconds=10),
+        analytics_dir=REPO / "analytics",
     )
 
 
@@ -114,6 +117,82 @@ def test_works_without_llm_config(tmp_path: Path, data_dir: Path):
     response = client.post("/query", json={"sql": "SELECT COUNT(*) AS n FROM sales"})
     assert response.status_code == 200
     assert response.json()["artifact"]["row_count"] == 1
+
+
+def test_list_analytics_from_registry(tmp_path: Path, data_dir: Path):
+    client = TestClient(create_app(_config(tmp_path, data_dir)))
+    response = client.get("/analytics")
+    assert response.status_code == 200
+    ids = {item["analytic_id"] for item in response.json()["analytics"]}
+    assert "top_products" in ids
+    assert "sales_by_region" in ids
+    top = next(item for item in response.json()["analytics"] if item["analytic_id"] == "top_products")
+    assert top["version"] == "1.0.0"
+    assert top["engine"] == "duckdb"
+
+
+def test_run_analytic_by_id(tmp_path: Path, data_dir: Path):
+    client = TestClient(create_app(_config(tmp_path, data_dir)))
+    response = client.post("/analytics/run", json={"analytic_id": "top_products", "principal": "tester"})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["artifact"]["row_count"] == 3
+    assert body["preview"]["row_count"] == 3
+    assert "product" in body["preview"]["columns"]
+    assert body["receipt"]["action"] == "run_analytic"
+    assert body["receipt"]["status"] == "succeeded"
+    assert body["receipt"]["params"]["analytic_id"] == "top_products"
+    assert body["receipt"]["params"]["version"] == "1.0.0"
+    assert body["receipt"]["model_provider"] is None
+    assert body["receipt"]["model_id"] is None
+
+
+def test_run_unknown_analytic(tmp_path: Path, data_dir: Path):
+    client = TestClient(create_app(_config(tmp_path, data_dir)))
+    response = client.post("/analytics/run", json={"analytic_id": "nope"})
+    assert response.status_code == 404
+
+
+def test_query_preview_and_preview_endpoint(tmp_path: Path, data_dir: Path):
+    client = TestClient(create_app(_config(tmp_path, data_dir)))
+    response = client.post("/query", json={"sql": "SELECT product, amount FROM sales ORDER BY amount DESC"})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["preview"]["columns"] == ["product", "amount"]
+    assert body["preview"]["row_count"] == 6
+    artifact_id = body["artifact"]["artifact_id"]
+    preview = client.get(f"/results/{artifact_id}/preview")
+    assert preview.status_code == 200
+    assert preview.json()["row_count"] == 6
+
+
+def test_models_endpoint_without_llm(tmp_path: Path, data_dir: Path):
+    client = TestClient(create_app(_config(tmp_path, data_dir)))
+    response = client.get("/models")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["configured"] is False
+    assert body["main"] is None
+
+
+def test_assist_stub_does_not_require_model(tmp_path: Path, data_dir: Path):
+    client = TestClient(create_app(_config(tmp_path, data_dir)))
+    response = client.post("/assist/explain", json={"artifact_id": "missing"})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["used"] is False
+    assert body["model_provider"] is None
+    assert body["model_id"] is None
+
+
+def test_ui_is_served(tmp_path: Path, data_dir: Path):
+    client = TestClient(create_app(_config(tmp_path, data_dir)))
+    for path in ("/ui", "/"):
+        response = client.get(path)
+        assert response.status_code == 200
+        assert "text/html" in response.headers["content-type"]
+        assert "Analytics Mesh" in response.text
+        assert "analytic" in response.text.lower()
 
 
 def test_bad_sql_writes_failed_receipt(tmp_path: Path, data_dir: Path):

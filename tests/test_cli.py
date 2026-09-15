@@ -22,6 +22,7 @@ def test_cli_help():
     assert "nodes" in result.stdout
     assert "pair" in result.stdout
     assert "jobs" in result.stdout
+    assert "analytics" in result.stdout
 
 
 def test_cli_query_and_receipt(tmp_path: Path, data_dir: Path):
@@ -31,6 +32,7 @@ def test_cli_query_and_receipt(tmp_path: Path, data_dir: Path):
         receipt_db=tmp_path / "receipts.sqlite",
         connectors=[ConnectorConfig(id="local_files", type="local_files", root=data_dir)],
         limits=LimitsConfig(default_row_limit=100, max_row_limit=1000, query_timeout_seconds=10),
+        analytics_dir=Path(__file__).resolve().parents[1] / "analytics",
     )
     server_app = create_app(cfg)
     server = uvicorn.Server(uvicorn.Config(server_app, host="127.0.0.1", port=0, log_level="error"))
@@ -64,6 +66,17 @@ def test_cli_query_and_receipt(tmp_path: Path, data_dir: Path):
         assert receipt.exit_code == 0
         assert receipt_id in receipt.stdout
         assert "succeeded" in receipt.stdout
+
+        listed = runner.invoke(app, ["analytics", "list", "--url", url])
+        assert listed.exit_code == 0, listed.stdout
+        listed_body = json.loads(listed.stdout)
+        assert {item["analytic_id"] for item in listed_body["analytics"]} >= {"top_products"}
+
+        ran = runner.invoke(app, ["analytics", "run", "top_products", "--url", url])
+        assert ran.exit_code == 0, ran.stdout
+        ran_body = json.loads(ran.stdout)
+        assert ran_body["receipt"]["action"] == "run_analytic"
+        assert ran_body["receipt"]["model_provider"] is None
     finally:
         server.should_exit = True
         thread.join(timeout=5)
