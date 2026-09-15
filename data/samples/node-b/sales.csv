@@ -1,0 +1,4 @@
+order_id,product,region,amount,sold_on
+1,babylon-sprocket,west,99.0,2026-02-01
+2,epsilon-widget,east,11.0,2026-02-02
+3,babylon-sprocket,east,99.0,2026-02-03

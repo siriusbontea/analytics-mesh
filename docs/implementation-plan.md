@@ -28,10 +28,20 @@
 
 **Exit:** On one machine, query local CSV/Parquet without a control plane.
 
+## 2b. M2 tasks (implemented)
+
+1. Node Ed25519 identity (`identity_key_path`) and `/health.public_key`
+2. `mesh_plane`: node registry, job records (`queued` → `running` → `succeeded`/`failed`), proxy `run_query` / result / receipt metadata
+3. Client talks to the plane; plane does not store source tables — only job metadata and pointers
+4. Two-node demo: `scripts/two-node-demo.sh` or `node-a` / `node-b` / `plane` example configs on localhost
+5. CLI: `mesh plane`, `mesh pair`, `mesh nodes`, `mesh jobs`, `mesh query --node`, receipt fetch via plane (verified on the owning node)
+
+**Exit:** From a client, run SQL on Node B via the plane; artifact and receipt live on B.
+
 ## 3. LLM config (later)
 
 Analytics works with **zero** LLM configured. `configs/examples/models.yaml` documents the shape (main / auxiliary / fallback, `local_only` by default). Assist features degrade if no model is up. Do not commit secrets.
 
-## 4. Not in M1
+## 4. Not in M2
 
-Control plane, web UI, Postgres, MCP, policy engine, federated learning, enterprise decision UI.
+Web UI / analytic registry (M3), Postgres, NL→SQL, policy engine (M4), MCP (M5), federated learning, enterprise decision UI.
