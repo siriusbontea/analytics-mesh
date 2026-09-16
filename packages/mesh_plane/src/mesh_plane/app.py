@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hmac
 from datetime import datetime, timezone
 
 from fastapi import FastAPI, HTTPException
@@ -47,7 +48,11 @@ def create_app(config: PlaneConfig | None = None, proxy: NodeProxy | None = None
 
     @app.post("/nodes/register")
     def register_node(request: NodeRegistrationRequest) -> dict[str, object]:
-        if request.token != cfg.registration_token:
+        try:
+            expected = cfg.resolved_registration_token()
+        except ValueError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+        if not hmac.compare_digest(request.token, expected):
             raise HTTPException(status_code=403, detail="invalid registration token")
         payload = canonical_registration_payload(
             node_id=request.node_id,

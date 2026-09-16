@@ -113,6 +113,17 @@
 
 **Exit:** `uv run pytest` green including stub assist tests; documented path to run against real Ollama; UI marker tests unchanged.
 
-## 11. Not in M10 / v1
+## 11. M11 tasks (implemented)
 
-Federated learning, Hermes learning loop, messaging gateways, full OPA deployment, Axonis decision graph UI.
+1. Pairing token: example YAML may keep `demo-pair-token` for localhost demos; document loudly that it must be replaced beyond localhost. Env override `MESH_PAIR_TOKEN` plus optional `pair_token_env` on plane / `plane.pair_token_env` on nodes (same hook as `dsn_env` / `api_key_env`). CLI `--token` still wins. No PKI/SSO.
+2. Listen posture: default remains `127.0.0.1`. Document Tailscale/LAN `listen_host` + `plane.public_endpoint` / `plane.url`. Do not enable `0.0.0.0` by default. Comment blocks on example plane/node-a/node-b configs.
+3. systemd: `deploy/systemd/mesh-node.service`, `mesh-plane.service`, `mesh-mcp.service` match shipped entrypoints (`mesh-node` / `mesh-plane` / `mesh-mcp`), `User=`/`Group=` placeholders, `WorkingDirectory`, optional `EnvironmentFile` for pair token / models (`mesh.env.example`).
+4. Real data dirs: document changing `connectors.local_files.root`; sensitivity labels are advisory. `configs/examples/node-real-data.yaml.example` shows a non-sample root path and is not secret-bearing.
+5. Tests: `tests/test_pair_token.py` for env/named-env/CLI override and plane register; example configs still load with demo token + localhost. pytest + UI + deep-smoke stay green with the demo token.
+6. Docs: README “Production-ish on a Linux box” + this M11 note.
+
+**Exit:** `uv run pytest` green; deep-smoke still works with demo token on localhost.
+
+## 12. Not in M11 / v1
+
+Federated learning, Hermes learning loop, messaging gateways, full OPA deployment, Axonis decision graph UI, mTLS/OAuth, classified packaging, or auto-deploy onto operator laptops.

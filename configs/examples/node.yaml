@@ -1,3 +1,6 @@
+# Default listen is localhost only. Do not set listen_host: 0.0.0.0.
+# For a real data directory, copy configs/examples/node-real-data.yaml.example
+# and change connectors[local_files].root (keep sensitivity labels accurate).
 node_id: local-dev
 artifact_dir: var/artifacts
 receipt_db: var/receipts.sqlite

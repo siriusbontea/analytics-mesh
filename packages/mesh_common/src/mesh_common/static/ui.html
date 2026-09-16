@@ -646,6 +646,7 @@ uv run mesh query --url http://127.0.0.1:8090 --node node-b --sql "SELECT 1"</pr
           <li><strong>Node UI</strong> (<code>mesh serve</code>, typically <code>http://127.0.0.1:8080/ui</code>) talks only to that node. There is no jobs list.</li>
           <li><strong>Plane UI</strong> (<code>mesh plane</code>, typically <code>http://127.0.0.1:8090/ui</code>) needs a node picker. The plane forwards the run and records a job.</li>
           <li><strong>Jobs</strong> are metadata + pointers. <code>#job=&lt;id&gt;</code> loads that job’s preview and receipt; the artifact is streamed from the owning node, not stored on the plane.</li>
+          <li><strong>Listen / pairing:</strong> default bind is <code>127.0.0.1</code>. For another machine, set Tailscale or LAN addresses in <code>listen_host</code> and <code>plane.public_endpoint</code> — not <code>0.0.0.0</code>. Example YAML keeps <code>demo-pair-token</code> for localhost only; set <code>MESH_PAIR_TOKEN</code> beyond that.</li>
         </ul>
         <p>Deep links: <code>#help</code> or <code>#help=receipts</code> open this drawer; <code>#job=</code> opens a plane job result.</p>
       </article>

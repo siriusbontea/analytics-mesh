@@ -41,8 +41,47 @@ def test_example_policy_and_postgres_config_load():
 def test_example_plane_config_loads():
     plane = load_plane_config(REPO / "configs/examples/plane.yaml")
     assert plane.plane_id == "home-plane"
-    assert plane.registration_token
+    assert plane.registration_token == "demo-pair-token"
+    assert plane.pair_token_env is None
+    assert plane.listen_host == "127.0.0.1"
     assert plane.listen_port == 8090
+    text = (REPO / "configs/examples/plane.yaml").read_text()
+    assert "localhost-only" in text or "localhost only" in text
+    assert "MESH_PAIR_TOKEN" in text
+    assert "0.0.0.0" in text
+
+
+def test_real_data_example_is_not_secret_bearing():
+    path = REPO / "configs/examples/node-real-data.yaml.example"
+    node = load_config(path)
+    assert node.listen_host == "127.0.0.1"
+    assert node.connectors[0].type == "local_files"
+    assert node.connectors[0].root == Path("/var/lib/analytics-mesh/data")
+    assert "personal" in node.connectors[0].labels
+    assert node.plane is None
+    text = path.read_text()
+    assert "demo-pair-token" not in text
+    assert "MESH_PAIR_TOKEN" in text
+    assert "0.0.0.0" in text
+
+
+def test_systemd_units_match_shipped_entrypoints():
+    units = {
+        "mesh-node.service": "mesh-node",
+        "mesh-plane.service": "mesh-plane",
+        "mesh-mcp.service": "mesh-mcp",
+    }
+    for name, script in units.items():
+        text = (REPO / "deploy/systemd" / name).read_text()
+        assert f"ExecStart=" in text
+        assert script in text
+        assert "User=mesh" in text
+        assert "WorkingDirectory=/opt/analytics-mesh" in text
+        assert "EnvironmentFile=-/etc/analytics-mesh/mesh.env" in text
+        assert "127.0.0.1" in text
+    env = (REPO / "deploy/systemd/mesh.env.example").read_text()
+    assert "MESH_PAIR_TOKEN=" in env
+    assert "0.0.0.0" in env
 
 
 def test_default_example_node_is_llm_free():

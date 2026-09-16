@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import yaml
@@ -7,6 +8,7 @@ from pydantic import BaseModel, Field
 
 from mesh_common.artifacts import ArtifactStoreConfig
 from mesh_common.llm import LlmProviderConfig, load_llm_config
+from mesh_common.secrets import resolve_pair_token
 
 
 class ConnectorConfig(BaseModel):
@@ -27,9 +29,13 @@ class LimitsConfig(BaseModel):
 
 class PlaneClientConfig(BaseModel):
     url: str
-    token: str
+    token: str | None = None
+    pair_token_env: str | None = None
     register_on_start: bool = True
     public_endpoint: str | None = None
+
+    def resolved_token(self) -> str:
+        return resolve_pair_token(self.token, pair_token_env=self.pair_token_env)
 
 
 class NodeConfig(BaseModel):
@@ -48,6 +54,13 @@ class NodeConfig(BaseModel):
     listen_host: str = "127.0.0.1"
     listen_port: int = 8080
     plane: PlaneClientConfig | None = None
+
+    def resolved_listen_host(self) -> str:
+        return os.environ.get("MESH_LISTEN_HOST") or self.listen_host
+
+    def resolved_listen_port(self) -> int:
+        raw = os.environ.get("MESH_LISTEN_PORT")
+        return int(raw) if raw else self.listen_port
 
     def resolve_paths(self, base: Path) -> NodeConfig:
         def resolve(path: Path) -> Path:

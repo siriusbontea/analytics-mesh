@@ -56,8 +56,10 @@ wait_for "${NODE_A_URL}/health"
 wait_for "${NODE_B_URL}/health"
 
 # Nodes register on start; pair again in case the plane came up first but a node retried.
-uv run mesh pair --config configs/examples/node-a.yaml --url "$PLANE_URL" --token demo-pair-token --endpoint "$NODE_A_URL" >/dev/null
-uv run mesh pair --config configs/examples/node-b.yaml --url "$PLANE_URL" --token demo-pair-token --endpoint "$NODE_B_URL" >/dev/null
+# Honor MESH_PAIR_TOKEN when set (same override the plane/node use); else demo token.
+PAIR_TOKEN="${MESH_PAIR_TOKEN:-demo-pair-token}"
+uv run mesh pair --config configs/examples/node-a.yaml --url "$PLANE_URL" --token "$PAIR_TOKEN" --endpoint "$NODE_A_URL" >/dev/null
+uv run mesh pair --config configs/examples/node-b.yaml --url "$PLANE_URL" --token "$PAIR_TOKEN" --endpoint "$NODE_B_URL" >/dev/null
 
 echo
 echo "registered nodes:"

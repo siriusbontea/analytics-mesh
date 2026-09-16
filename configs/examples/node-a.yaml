@@ -1,3 +1,14 @@
+# Laptop demo node A. listen_host stays 127.0.0.1 — do not bind 0.0.0.0.
+#
+# Pairing: plane.token `demo-pair-token` is for localhost only. Beyond that,
+# set MESH_PAIR_TOKEN (or plane.pair_token_env) and use the same value on the plane.
+#
+# Multi-machine: set listen_host to this node's Tailscale/LAN address and
+# plane.public_endpoint / plane.url to reachable URLs, e.g.
+#   listen_host: 100.64.0.11
+#   plane:
+#     url: http://plane.tailnet.ts.net:8090
+#     public_endpoint: http://node-a.tailnet.ts.net:8081
 node_id: node-a
 artifact_dir: var/node-a/artifacts
 receipt_db: var/node-a/receipts.sqlite
@@ -19,5 +30,6 @@ limits:
 plane:
   url: http://127.0.0.1:8090
   token: demo-pair-token
+  # pair_token_env: MESH_PAIR_TOKEN
   register_on_start: true
   public_endpoint: http://127.0.0.1:8081

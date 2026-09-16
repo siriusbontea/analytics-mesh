@@ -1,5 +1,18 @@
+# Laptop demo plane. Default listen is localhost only — do not set 0.0.0.0.
+#
+# Pairing token: `demo-pair-token` is for localhost demos only.
+# Replace it before any LAN / Tailscale / multi-machine use.
+# Prefer MESH_PAIR_TOKEN (or pair_token_env) so the real secret is not in git.
+#   export MESH_PAIR_TOKEN="$(openssl rand -hex 24)"
+#   # or: pair_token_env: MESH_PAIR_TOKEN
+#
+# Multi-machine listen: bind a Tailscale or LAN address, e.g.
+#   listen_host: 100.64.0.10
+#   # nodes then set plane.public_endpoint to a reachable URL, such as
+#   # http://plane.tailnet.ts.net:8090  or  http://100.64.0.10:8090
 plane_id: home-plane
 registration_token: demo-pair-token
+# pair_token_env: MESH_PAIR_TOKEN
 store_path: var/plane/plane.sqlite
 listen_host: 127.0.0.1
 listen_port: 8090
