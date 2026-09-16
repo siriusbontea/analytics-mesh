@@ -36,6 +36,7 @@ cleanup() {
   for pid in "${PIDS[@]:-}"; do
     if [[ -n "${pid}" ]] && kill -0 "$pid" 2>/dev/null; then
       kill "$pid" 2>/dev/null || true
+      wait "$pid" 2>/dev/null || true
     fi
   done
   if [[ -n "${TMP_DIR}" && -d "${TMP_DIR}" ]]; then
@@ -50,7 +51,7 @@ fail() { echo "FAIL $*"; exit 1; }
 wait_for() {
   local url=$1
   local i
-  for i in $(seq 1 50); do
+  for i in $(seq 1 150); do
     if uv run python -c "import httpx,sys; r=httpx.get(sys.argv[1], timeout=1.0); sys.exit(0 if r.status_code < 500 else 1)" "$url" 2>/dev/null; then
       return 0
     fi
@@ -115,9 +116,13 @@ limits:
 YAML
   BASE_URL="http://127.0.0.1:${PORT}"
   echo "starting temp node on ${BASE_URL}"
-  uv run mesh serve --config "$TMP_DIR/node.yaml" >/dev/null 2>&1 &
+  uv run mesh serve --config "$TMP_DIR/node.yaml" >"$TMP_DIR/serve.log" 2>&1 &
   PIDS+=($!)
   if ! wait_for "${BASE_URL}/health"; then
+    if [[ -f "$TMP_DIR/serve.log" ]]; then
+      echo "---- serve.log ----" >&2
+      cat "$TMP_DIR/serve.log" >&2
+    fi
     fail "temp node did not become healthy at ${BASE_URL}/health"
   fi
   ok "started temp node ${BASE_URL}"
@@ -157,7 +162,7 @@ assert body.get('status') == 'succeeded'
 " || fail "GET /receipts/{id} body"
 ok "GET /receipts/${receipt_id}"
 
-verify_out="$(uv run mesh receipt "$receipt_id" --url "$BASE_URL" --verify-chain")" \
+verify_out="$(uv run mesh receipt "$receipt_id" --url "$BASE_URL" --verify-chain)" \
   || fail "mesh receipt --verify-chain"
 printf '%s\n' "$verify_out" | uv run python -c "
 import json, sys

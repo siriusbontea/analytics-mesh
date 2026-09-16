@@ -17,7 +17,9 @@ jobs:
           enable-cache: true
           python-version: "3.12"
       - name: Install dependencies
-        run: uv sync --group dev
+        run: uv sync --frozen --group dev
+      - name: Syntax-check deep-smoke
+        run: bash -n scripts/deep-smoke.sh
       - name: Run tests
         run: uv run pytest
 
@@ -33,6 +35,6 @@ jobs:
           enable-cache: true
           python-version: "3.12"
       - name: Install dependencies
-        run: uv sync --group dev
+        run: uv sync --frozen --group dev
       - name: Deep smoke (temp node)
         run: ./scripts/deep-smoke.sh --start
