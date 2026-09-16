@@ -1,0 +1,103 @@
+from __future__ import annotations
+
+import os
+import socket
+import subprocess
+import sys
+import time
+from collections.abc import Iterator
+from pathlib import Path
+
+import httpx
+import pytest
+
+REPO = Path(__file__).resolve().parents[2]
+
+
+def _free_port() -> int:
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        return int(sock.getsockname()[1])
+
+
+def _wait_healthy(url: str, timeout: float = 30.0) -> None:
+    deadline = time.monotonic() + timeout
+    last_error: Exception | None = None
+    while time.monotonic() < deadline:
+        try:
+            response = httpx.get(f"{url}/health", timeout=1.0)
+            if response.status_code < 500:
+                return
+        except httpx.HTTPError as exc:
+            last_error = exc
+        time.sleep(0.2)
+    raise RuntimeError(f"temp node at {url}/health did not become ready: {last_error}")
+
+
+@pytest.fixture(scope="session")
+def browser_type_launch_args(browser_type_launch_args: dict) -> dict:
+    args = list(browser_type_launch_args.get("args") or [])
+    for extra in ("--disable-dev-shm-usage", "--no-sandbox"):
+        if extra not in args:
+            args.append(extra)
+    return {**browser_type_launch_args, "args": args}
+
+
+@pytest.fixture(scope="session")
+def live_node(tmp_path_factory: pytest.TempPathFactory) -> Iterator[str]:
+    """Hermetic node on an ephemeral port (same shape as scripts/deep-smoke.sh --start)."""
+    tmp_dir = tmp_path_factory.mktemp("mesh-ui-node")
+    port = _free_port()
+    config_path = tmp_dir / "node.yaml"
+    config_path.write_text(
+        "\n".join(
+            [
+                "node_id: ui-test-node",
+                f"artifact_dir: {tmp_dir / 'artifacts'}",
+                f"receipt_db: {tmp_dir / 'receipts.sqlite'}",
+                f"identity_key_path: {tmp_dir / 'identity.pem'}",
+                "listen_host: 127.0.0.1",
+                f"listen_port: {port}",
+                "connectors:",
+                "  - id: local_files",
+                "    type: local_files",
+                f"    root: {REPO / 'data' / 'samples'}",
+                "    labels: [personal]",
+                f"analytics_dir: {REPO / 'analytics'}",
+                f"policy_path: {REPO / 'configs' / 'examples' / 'policy.yaml'}",
+                "limits:",
+                "  default_row_limit: 10000",
+                "  max_row_limit: 100000",
+                "  query_timeout_seconds: 30",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    log_path = tmp_dir / "serve.log"
+    log_file = log_path.open("w", encoding="utf-8")
+    proc = subprocess.Popen(
+        [sys.executable, "-m", "mesh_client", "serve", "--config", str(config_path)],
+        cwd=str(REPO),
+        stdout=log_file,
+        stderr=subprocess.STDOUT,
+        env={**os.environ, "PYTHONUNBUFFERED": "1"},
+    )
+    base_url = f"http://127.0.0.1:{port}"
+    try:
+        try:
+            _wait_healthy(base_url)
+        except Exception:
+            log_file.flush()
+            if log_path.exists():
+                sys.stderr.write(log_path.read_text(encoding="utf-8"))
+            raise
+        yield base_url
+    finally:
+        proc.terminate()
+        try:
+            proc.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait(timeout=5)
+        log_file.close()

@@ -2,7 +2,7 @@
 
 Query-first local analytics. Point a node at a directory of CSV, Parquet, or JSON files, run sandboxed DuckDB SQL, and get a Parquet artifact plus a hash-chained receipt. No LLM is required.
 
-M1 is a **single node** on one machine. M2 adds a thin **control plane** that registers nodes and routes `run_query` to a target node. The plane stores job metadata and pointers only — not source tables. M3 adds a **versioned analytic registry**, a **minimal web UI**, and optional **OpenAI-compatible model config**. M4 adds **YAML policy allowlists**, **artifact retention/size caps**, a **read-only Postgres connector**, and optional **NL→SQL assist** that never auto-executes. M5 completes v1: an **analytics-only MCP adapter**, an optional **Polars engine**, and a **main → fallback** assist chain recorded on receipts. M6 polishes that same **single-file `/ui`**: dark/light theme, connectors and plane jobs, receipt verify/copy, an editable principal, and a light SVG bar chart on suitable previews. M7 adds an in-page **Help drawer** and accessible **tooltips** so you can learn the tool without leaving `/ui`. M8 fixes **`mesh receipt --verify-chain` against a direct node**, adds **GitHub Actions CI**, and ships **`scripts/deep-smoke.sh`**. Analytics still work with **zero** LLM configured.
+M1 is a **single node** on one machine. M2 adds a thin **control plane** that registers nodes and routes `run_query` to a target node. The plane stores job metadata and pointers only — not source tables. M3 adds a **versioned analytic registry**, a **minimal web UI**, and optional **OpenAI-compatible model config**. M4 adds **YAML policy allowlists**, **artifact retention/size caps**, a **read-only Postgres connector**, and optional **NL→SQL assist** that never auto-executes. M5 completes v1: an **analytics-only MCP adapter**, an optional **Polars engine**, and a **main → fallback** assist chain recorded on receipts. M6 polishes that same **single-file `/ui`**: dark/light theme, connectors and plane jobs, receipt verify/copy, an editable principal, and a light SVG bar chart on suitable previews. M7 adds an in-page **Help drawer** and accessible **tooltips** so you can learn the tool without leaving `/ui`. M8 fixes **`mesh receipt --verify-chain` against a direct node**, adds **GitHub Actions CI**, and ships **`scripts/deep-smoke.sh`**. M9 adds **Playwright browser tests** for `/ui` (Help drawer + a successful `top_products` run) in a separate CI job. Analytics still work with **zero** LLM configured.
 
 ## Requirements
 
@@ -114,7 +114,19 @@ Pull requests and pushes to `main` run that same gate in GitHub Actions (Python 
 ./scripts/deep-smoke.sh --start  # temp node on an ephemeral port
 ```
 
-`pytest` is the required CI gate. `deep-smoke` is an optional workflow job (`continue-on-error`) that starts its own temp node.
+`pytest` (unit/API) and `pytest-ui` (Playwright) are required CI gates. `deep-smoke` is an optional workflow job (`continue-on-error`) that starts its own temp node.
+
+### Browser UI tests (M9)
+
+These drive Chromium against a temp node on an ephemeral port (same idea as `./scripts/deep-smoke.sh --start`). They are marked `@pytest.mark.ui` and live under `tests/ui/`, so a plain `uv run pytest` stays the fast unit/API suite.
+
+```bash
+uv sync --group dev
+uv run playwright install chromium   # once per machine; CI also uses --with-deps
+uv run pytest -m ui --browser chromium
+```
+
+`uv run pytest tests/ui` is equivalent. Headed debugging: add `--headed`.
 
 ## Layout
 
@@ -134,8 +146,8 @@ deploy/systemd/           mesh-node / mesh-plane / mesh-mcp unit files
 docker-compose.yml        optional Postgres for the read-only connector
 scripts/two-node-demo.sh  localhost two-node walkthrough
 scripts/deep-smoke.sh     post-serve / hermetic checks (health, analytic, receipt chain, policy, assist, Help UI)
-.github/workflows/ci.yml  pytest on PR and main; optional deep-smoke
-tests/
+.github/workflows/ci.yml  pytest + Playwright UI on PR and main; optional deep-smoke
+tests/                    unit/API; tests/ui/ is Playwright (`pytest -m ui`)
 ```
 
 ## API
@@ -306,6 +318,7 @@ M1–M5 together are v1: query where the data lives, return an artifact plus a v
 | M6 | Browser UI polish: theme, connectors/jobs, receipt helpers, SVG chart |
 | M7 | In-UI Help drawer and accessible tooltips |
 | M8 | Direct-node `--verify-chain`, GitHub Actions CI, `scripts/deep-smoke.sh` |
+| M9 | Playwright browser tests for `/ui` (Help + Run analytic) |
 
 ### MCP adapter (analytics toolset only)
 
@@ -408,6 +421,17 @@ Still the same `ui.html`. **Help** in the topbar opens a right-side drawer (Clos
 | Control plane | `plane_id` | `GET /nodes/{id}/receipts/chain` |
 
 Receipts always include `node_id` (the owning node). Using that field as a plane path against `http://127.0.0.1:8080` 404s. After a successful `mesh analytics run top_products` on a node, `--verify-chain` exits 0 and prints `valid: true`.
+
+## M9 — browser UI tests
+
+`/ui` stays the same single static file. M9 does not add a frontend stack.
+
+Playwright (Python `pytest-playwright`) opens `/ui` on a hermetic temp node:
+
+1. **Help** is visible; the drawer shows **Getting started** (and Concepts); Close and Esc dismiss it.
+2. Select `top_products`, click **Run**, wait for the preview table (gadget / widget / sprocket) and a receipt id (or enabled **Copy receipt id**).
+
+Install Chromium once, then `uv run pytest -m ui`. GitHub Actions runs that as the required `pytest-ui` job (browsers installed with `--with-deps`). Default `uv run pytest` does not collect these tests.
 
 ## Docs
 

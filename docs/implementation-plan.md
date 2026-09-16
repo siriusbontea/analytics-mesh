@@ -94,6 +94,16 @@
 
 **Exit:** `uv run pytest` green; serve example node → `mesh analytics run top_products` → `mesh receipt <id> --verify-chain` exits 0.
 
-## 9. Not in M8 / v1
+## 9. M9 tasks (implemented)
+
+1. Playwright browser tests for the shared static `/ui` (Python `pytest-playwright`, Chromium). Tests live in `tests/ui/` and are marked `@pytest.mark.ui`. Default `uv run pytest` does not collect them; run explicitly with `uv run pytest -m ui` (or `uv run pytest tests/ui`).
+2. Hermetic live node fixture: ephemeral port, temp artifact/receipt dirs, example `policy.yaml` + `data/samples` + `analytics/` — same shape as `scripts/deep-smoke.sh --start`. Tear down after the session.
+3. Coverage: Help control → open drawer → “Getting started” (and Concepts) → Close and Esc dismiss; select `top_products` → Run → product rows (gadget/widget/sprocket) + receipt id / Copy receipt id enabled. Optional: focused Run control exposes `#tip-run`.
+4. CI: required `pytest-ui` job installs Playwright Chromium (`--with-deps`) and runs `uv run pytest -m ui --browser chromium`. Existing pytest job stays the unit/API gate.
+5. README + this plan: M9 notes. `ui.html` stays a single static file (no React).
+
+**Exit:** `uv run pytest` green (~120+); `uv run pytest -m ui` green after `playwright install chromium`.
+
+## 10. Not in M9 / v1
 
 Federated learning, Hermes learning loop, messaging gateways, full OPA deployment, Axonis decision graph UI.
