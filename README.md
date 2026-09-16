@@ -245,11 +245,11 @@ Analytics stay useful with no model. To make **Propose SQL** talk to a laptop en
 2. Pull a model you actually have. Example ids in `models.yaml` are **placeholders** — they are not pinned weights:
 
    ```bash
-   ollama pull qwen2.5-coder:7b   # or any tag you prefer
+   ollama pull <tag>              # any local tag you have
    ./scripts/check-models.sh      # GET http://127.0.0.1:11434/v1/models
    ```
 
-   Set `model:` (main and auxiliary) to a tag that script lists. Keep `policy.default_mode: local_only` so the optional OpenRouter fallback does not fire unless you explicitly allow frontier.
+   Set `model:` (main and auxiliary) to a tag that script lists. The ids in `models.yaml` (`qwen2.5-coder:14b`, `qwen2.5:7b`) are **placeholders** — do not serve until they match a pulled tag. Keep `policy.default_mode: local_only` so the optional OpenRouter fallback does not fire unless you explicitly allow frontier.
 3. Serve the LLM-enabled example (default `node.yaml` stays LLM-free):
 
    ```bash

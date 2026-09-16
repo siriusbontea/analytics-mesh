@@ -625,6 +625,7 @@
         <h3>CLI vs UI</h3>
         <p>The UI is a thin static page over the same HTTP APIs as the CLI. Nothing here is a second execution path.</p>
         <pre>uv run mesh serve --config configs/examples/node.yaml
+# optional Propose SQL: configs/examples/node-with-models.yaml after Ollama is up
 uv run mesh analytics list
 uv run mesh analytics run top_products
 uv run mesh query --sql "SELECT product, SUM(amount) AS total FROM sales GROUP BY product"

@@ -144,6 +144,32 @@ def test_describe_llm_error_distinguishes_down_vs_missing():
     assert "pull" in missing.lower()
 
 
+def test_describe_llm_error_bare_404_is_not_a_missing_tag():
+    import httpx
+
+    slot = LlmSlotConfig(provider="local", base_url="http://127.0.0.1:11434/v1", model="my-tag")
+    request = httpx.Request("POST", "http://127.0.0.1:11434/chat/completions")
+    response = httpx.Response(404, request=request, text="Not Found")
+    message = describe_llm_error(httpx.HTTPStatusError("404", request=request, response=response), slot)
+    assert "404" in message
+    assert "pull" not in message.lower()
+    auth = httpx.Response(401, request=request, text='{"error":"API key not found"}')
+    auth_msg = describe_llm_error(httpx.HTTPStatusError("401", request=request, response=auth), slot)
+    assert "pull" not in auth_msg.lower()
+    assert "401" in auth_msg
+
+
+def test_describe_llm_error_frontier_connect_is_generic():
+    import httpx
+
+    slot = LlmSlotConfig(provider="frontier", base_url="https://openrouter.ai/api/v1", model="anthropic/claude")
+    message = describe_llm_error(httpx.ConnectError("connection refused"), slot)
+    assert "ollama" not in message.lower()
+    assert "lm studio" not in message.lower()
+    assert "openrouter.ai" in message
+    assert "could not connect" in message.lower()
+
+
 def test_check_models_script_probes_openai_compat_endpoint():
     import threading
 
