@@ -85,6 +85,15 @@
 
 **Exit:** Help usable without leaving `/ui`; `uv run pytest` green.
 
-## 8. Not in M7 / v1
+## 8. M8 tasks (implemented)
+
+1. CLI `mesh receipt <id> --verify-chain`: detect node vs plane from `/health` (`node_id` vs `plane_id`) and call `GET /receipts/chain` on a direct node, `GET /nodes/{id}/receipts/chain` on the plane. Regression: analytic run then `--verify-chain` exits 0 against a live node (old code 404'd on `/nodes/<node_id>/receipts/chain`).
+2. GitHub Actions on `pull_request` and `push` to `main`: Python 3.12, `uv sync --group dev`, `uv run pytest`, uv cache via `astral-sh/setup-uv`.
+3. `scripts/deep-smoke.sh` (executable): health, connectors list `sales`, `top_products`, GET receipt, CLI `--verify-chain`, ATTACH → HTTP 4xx, assist/nl2sql without model → `used: false`, `/ui` Help markers. `--start` boots a temp example node on an ephemeral port; optional `PLANE_URL` runs one plane→node analytic. Optional CI job (`continue-on-error`); pytest remains the required gate.
+4. README + this plan: M8 notes.
+
+**Exit:** `uv run pytest` green; serve example node → `mesh analytics run top_products` → `mesh receipt <id> --verify-chain` exits 0.
+
+## 9. Not in M8 / v1
 
 Federated learning, Hermes learning loop, messaging gateways, full OPA deployment, Axonis decision graph UI.

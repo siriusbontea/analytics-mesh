@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Optional
+from typing import Literal, Optional
 
 import httpx
 import typer
@@ -88,6 +88,29 @@ def _print_http_error(response: httpx.Response) -> None:
         _print_json(response.json())
     except json.JSONDecodeError:
         typer.echo(response.text)
+
+
+def target_kind_from_health(health: object) -> Literal["node", "plane"]:
+    """Classify a /health body. Plane has plane_id; a node has node_id."""
+    if isinstance(health, dict) and health.get("plane_id"):
+        return "plane"
+    return "node"
+
+
+def chain_path(
+    *,
+    target: Literal["node", "plane"],
+    node: Optional[str],
+    owning_node_id: Optional[str],
+) -> str:
+    """Hash-chain URL path. Nodes expose /receipts/chain; the plane proxies /nodes/{id}/..."""
+    if node:
+        return f"/nodes/{node}/receipts/chain"
+    if target == "plane":
+        if not owning_node_id:
+            raise ValueError("plane chain verification requires a node id")
+        return f"/nodes/{owning_node_id}/receipts/chain"
+    return "/receipts/chain"
 
 
 @app.command()
@@ -263,37 +286,38 @@ def receipt(
     verify_chain: bool = typer.Option(False, "--verify-chain", help="Also print hash-chain verification"),
 ) -> None:
     """Fetch a receipt by id (verified on the owning node)."""
+    base = url.rstrip("/")
     if node is not None:
-        receipt_url = f"{url.rstrip('/')}/nodes/{node}/receipts/{receipt_id}"
-        chain_url = f"{url.rstrip('/')}/nodes/{node}/receipts/chain"
+        receipt_url = f"{base}/nodes/{node}/receipts/{receipt_id}"
     else:
-        receipt_url = f"{url.rstrip('/')}/receipts/{receipt_id}"
-        chain_url = f"{url.rstrip('/')}/receipts/chain"
+        receipt_url = f"{base}/receipts/{receipt_id}"
     response = httpx.get(receipt_url, timeout=10.0)
     if response.status_code == 404:
         typer.echo("receipt not found", err=True)
         raise typer.Exit(code=1)
-    response.raise_for_status()
+    if response.status_code >= 400:
+        _print_http_error(response)
+        raise typer.Exit(code=1)
     body = response.json()
     _print_json(body)
-    if verify_chain:
-        if node is None and "node_id" in body:
-            chain_url = f"{url.rstrip('/')}/nodes/{body['node_id']}/receipts/chain"
-        try:
-            chain = httpx.get(chain_url, timeout=10.0)
-            chain.raise_for_status()
-            _print_json(chain.json())
-        except httpx.HTTPError:
-            if node is None and "node_id" not in body:
-                raise
-            # Plane has no global chain; verification stays on the owning node.
-            owning = body.get("node_id")
-            if owning:
-                chain = httpx.get(f"{url.rstrip('/')}/nodes/{owning}/receipts/chain", timeout=10.0)
-                chain.raise_for_status()
-                _print_json(chain.json())
-            else:
-                raise
+    if not verify_chain:
+        return
+    try:
+        health = httpx.get(f"{base}/health", timeout=10.0)
+        health.raise_for_status()
+        target = target_kind_from_health(health.json())
+        owning = node or (body.get("node_id") if isinstance(body, dict) else None)
+        path = chain_path(target=target, node=node, owning_node_id=owning if isinstance(owning, str) else None)
+        chain = httpx.get(f"{base}{path}", timeout=10.0)
+        chain.raise_for_status()
+    except (httpx.HTTPError, ValueError, json.JSONDecodeError) as exc:
+        typer.echo(f"chain verification failed: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    chain_body = chain.json()
+    _print_json(chain_body)
+    if not isinstance(chain_body, dict) or chain_body.get("valid") is not True:
+        typer.echo("receipt chain is not valid", err=True)
+        raise typer.Exit(code=1)
 
 
 @analytics_app.command("list")
