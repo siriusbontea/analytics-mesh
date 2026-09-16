@@ -65,6 +65,8 @@ def test_help_drawer_hooks_in_static_file():
     assert 'id="helpNav"' in html
     assert 'aria-modal="true"' in html
     assert 'aria-controls="helpDrawer"' in html
+    assert ".help-drawer[hidden]" in html
+    assert "setPageInert" in html
     assert "#help" in html
     assert "#help=" in html
     for section in HELP_SECTION_IDS:

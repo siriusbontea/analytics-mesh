@@ -113,7 +113,7 @@
       flex-wrap: wrap;
     }
     .field.compact { margin: 0; min-width: 10rem; }
-    .field.compact span {
+    .field.compact > span {
       display: block;
       font-size: 0.75rem;
       font-weight: 650;
@@ -293,15 +293,15 @@
     .tip-wrap.block > .tip-trigger { margin-top: 0.4rem; }
     .tip-trigger {
       flex: 0 0 auto;
-      width: 1.2rem;
-      height: 1.2rem;
+      width: 1.5rem;
+      height: 1.5rem;
       margin: 0;
       padding: 0;
       border-radius: 999px;
       border: 1px solid var(--line);
       background: transparent;
       color: var(--muted);
-      font-size: 0.68rem;
+      font-size: 0.75rem;
       font-weight: 750;
       line-height: 1;
     }
@@ -309,7 +309,7 @@
       position: absolute;
       z-index: 60;
       left: 0;
-      top: calc(100% + 0.4rem);
+      top: calc(100% - 1px);
       width: min(22rem, 72vw);
       padding: 0.5rem 0.65rem;
       border: 1px solid var(--line);
@@ -320,9 +320,10 @@
       font-size: 0.82rem;
       font-weight: 400;
       line-height: 1.4;
+      text-transform: none;
+      letter-spacing: 0;
       opacity: 0;
       visibility: hidden;
-      pointer-events: none;
     }
     .tip-wrap:hover > .tip-pop,
     .tip-wrap:focus-within > .tip-pop {
@@ -342,7 +343,7 @@
       top: 0;
       right: 0;
       z-index: 50;
-      width: min(36rem, 100vw);
+      width: min(32rem, 100vw);
       height: 100%;
       display: flex;
       flex-direction: column;
@@ -351,7 +352,8 @@
       border-left: 1px solid var(--line);
       box-shadow: -8px 0 24px rgb(28 25 23 / 0.12);
     }
-    .help-drawer:focus { outline: none; }
+    .help-drawer[hidden],
+    .help-backdrop[hidden] { display: none !important; }
     .help-head {
       display: flex;
       justify-content: space-between;
@@ -423,7 +425,7 @@
         <button id="themeToggle" type="button" class="ghost" aria-label="Toggle color theme" aria-describedby="tip-theme">Theme: Auto</button>
         <span id="tip-theme" role="tooltip" class="tip-pop">Cycles Auto, Light, and Dark. Auto follows your system preference; the choice is remembered in this browser only.</span>
       </span>
-      <button id="helpBtn" type="button" class="ghost" aria-expanded="false" aria-controls="helpDrawer">Help</button>
+      <button id="helpBtn" type="button" class="ghost" aria-haspopup="dialog" aria-expanded="false" aria-controls="helpDrawer">Help</button>
     </div>
   </header>
 
@@ -511,7 +513,7 @@
       <div class="actions">
         <span class="tip-wrap">
           <button id="runBtn" type="button" aria-describedby="tip-run">Run</button>
-          <span id="tip-run" role="tooltip" class="tip-pop">Executes the selected analytic or SQL on the target node. You get a preview, a Parquet artifact, and a hash-chained receipt. Data does not leave that node.</span>
+          <span id="tip-run" role="tooltip" class="tip-pop">Executes the selected analytic or SQL on the target node. You get a preview, a Parquet artifact, and a hash-chained receipt. Source tables stay on that node.</span>
         </span>
         <span class="tip-wrap">
           <button id="proposeBtn" class="secondary" type="button" aria-describedby="tip-propose">Propose SQL</button>
@@ -519,6 +521,7 @@
         </span>
         <span class="tip-wrap">
           <button id="confirmSqlBtn" class="ghost" type="button" disabled aria-describedby="tip-confirm">Confirm and run proposed SQL</button>
+          <button type="button" class="tip-trigger" aria-describedby="tip-confirm" aria-label="About Confirm and run proposed SQL">?</button>
           <span id="tip-confirm" role="tooltip" class="tip-pop">Runs the reviewed proposal as ad-hoc SQL. This is the confirm step; Propose SQL never auto-executes.</span>
         </span>
       </div>
@@ -530,7 +533,7 @@
         <h2>Result</h2>
         <span class="tip-wrap">
           <button type="button" class="tip-trigger" aria-describedby="tip-chart" aria-label="About the chart">?</button>
-          <span id="tip-chart" role="tooltip" class="tip-pop">When a preview has a label column and a numeric column, a light SVG bar chart appears above the table. Other shapes stay table-only; nothing is sent to a chart service.</span>
+          <span id="tip-chart" role="tooltip" class="tip-pop">When a preview has a label column, a numeric column, and at most 24 plotted rows, a light SVG bar chart appears above the table. Other shapes stay table-only; nothing is sent to a chart service.</span>
         </span>
       </div>
       <p id="resultMeta" class="muted">Nothing run yet.</p>
@@ -544,6 +547,7 @@
       </p>
       <span class="tip-wrap">
         <button id="assistBtn" class="secondary" type="button" disabled aria-describedby="tip-explain">Explain result (optional assist)</button>
+        <button type="button" class="tip-trigger" aria-describedby="tip-explain" aria-label="About Explain result">?</button>
         <span id="tip-explain" role="tooltip" class="tip-pop">Optional auxiliary-model note on a capped preview. Core analytics never call a model; this stays off unless you click it and a model is configured.</span>
       </span>
       <p id="assistStatus" class="muted">Explain uses the auxiliary model when configured. Core runs never call a model.</p>
@@ -555,6 +559,7 @@
       <div class="actions">
         <span class="tip-wrap">
           <button id="copyReceiptBtn" class="secondary" type="button" disabled aria-describedby="tip-copy-receipt">Copy receipt id</button>
+          <button type="button" class="tip-trigger" aria-describedby="tip-copy-receipt" aria-label="About Copy receipt id">?</button>
           <span id="tip-copy-receipt" role="tooltip" class="tip-pop">Copies the receipt id so you can fetch or verify it from the CLI with uv run mesh receipt.</span>
         </span>
         <span class="tip-wrap">
@@ -669,6 +674,7 @@ uv run mesh query --url http://127.0.0.1:8090 --node node-b --sql "SELECT 1"</pr
     const HELP_SECTIONS = ["getting-started", "concepts", "cli-vs-ui", "receipts", "plane-vs-node", "policy", "mcp"];
     let helpOpen = false;
     let helpLastFocus = null;
+    let savedJobHash = null;
 
     const $ = (id) => document.getElementById(id);
 
@@ -1005,7 +1011,7 @@ uv run mesh query --url http://127.0.0.1:8090 --node node-b --sql "SELECT 1"</pr
 
     function jobLink(job) {
       if (job.status === "succeeded" && job.job_id) {
-        return '<a href="#job=' + encodeURIComponent(job.job_id) + '">Open result</a>';
+        return '<a href="#job=' + encodeURIComponent(job.job_id) + '" aria-describedby="tip-jobs">Open result</a>';
       }
       return "<span class=\"muted\">—</span>";
     }
@@ -1300,11 +1306,15 @@ uv run mesh query --url http://127.0.0.1:8090 --node node-b --sql "SELECT 1"</pr
     $("themeToggle").addEventListener("click", function () {
       applyTheme(nextTheme(storedTheme()));
     });
+    function safeDecode(value) {
+      try { return decodeURIComponent(value); } catch { return value; }
+    }
+
     function helpSectionFromHash() {
       const raw = location.hash.replace(/^#/, "");
       if (raw === "help") return "getting-started";
       if (raw.indexOf("help=") === 0) {
-        const id = decodeURIComponent(raw.slice(5));
+        const id = safeDecode(raw.slice(5));
         return HELP_SECTIONS.indexOf(id) >= 0 ? id : "getting-started";
       }
       return null;
@@ -1312,7 +1322,15 @@ uv run mesh query --url http://127.0.0.1:8090 --node node-b --sql "SELECT 1"</pr
 
     function jobIdFromHash() {
       const match = location.hash.match(/^#job=(.+)$/);
-      return match ? decodeURIComponent(match[1]) : null;
+      return match ? safeDecode(match[1]) : null;
+    }
+
+    function setPageInert(on) {
+      Array.prototype.forEach.call(document.body.children, function (el) {
+        if (el.id === "helpDrawer" || el.id === "helpBackdrop") return;
+        if (on) el.setAttribute("inert", "");
+        else el.removeAttribute("inert");
+      });
     }
 
     function showHelpSection(sectionId) {
@@ -1324,8 +1342,9 @@ uv run mesh query --url http://127.0.0.1:8090 --node node-b --sql "SELECT 1"</pr
         else el.removeAttribute("aria-current");
       });
       const article = $("help-" + known);
-      if (article && !article.classList.contains("hidden")) {
-        article.scrollIntoView({ block: "start" });
+      const body = $("helpBody");
+      if (article && body && !article.classList.contains("hidden")) {
+        body.scrollTop = Math.max(0, article.offsetTop - body.offsetTop);
       }
       return known;
     }
@@ -1344,18 +1363,25 @@ uv run mesh query --url http://127.0.0.1:8090 --node node-b --sql "SELECT 1"</pr
       return Array.prototype.slice.call($("helpDrawer").querySelectorAll(
         'a[href], button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex="-1"])'
       )).filter(function (el) {
-        return !el.hidden && !el.classList.contains("hidden") && el.offsetParent !== null;
+        return !el.hidden && !el.classList.contains("hidden") && el.getClientRects().length;
       });
     }
 
     function openHelp(sectionId, options) {
       options = options || {};
-      helpLastFocus = document.activeElement;
+      const alreadyOpen = helpOpen;
+      if (!alreadyOpen) {
+        const active = document.activeElement;
+        helpLastFocus = (active && active.id === "helpBtn") ? active : $("helpBtn");
+        const jobId = jobIdFromHash();
+        savedJobHash = jobId ? "job=" + encodeURIComponent(jobId) : null;
+      }
       $("helpDrawer").hidden = false;
       $("helpBackdrop").hidden = false;
       document.body.classList.add("help-open");
       $("helpBtn").setAttribute("aria-expanded", "true");
       helpOpen = true;
+      setPageInert(true);
       const known = showHelpSection(sectionId || "getting-started");
       if (!options.skipHash) {
         const next = known === "getting-started" ? "help" : "help=" + known;
@@ -1363,7 +1389,7 @@ uv run mesh query --url http://127.0.0.1:8090 --node node-b --sql "SELECT 1"</pr
           history.pushState(null, "", "#" + next);
         }
       }
-      if (!options.skipFocus) $("helpDrawer").focus();
+      if (!alreadyOpen && !options.skipFocus) $("helpClose").focus();
     }
 
     function closeHelp(options) {
@@ -1374,17 +1400,19 @@ uv run mesh query --url http://127.0.0.1:8090 --node node-b --sql "SELECT 1"</pr
       $("helpBackdrop").hidden = true;
       document.body.classList.remove("help-open");
       $("helpBtn").setAttribute("aria-expanded", "false");
+      setPageInert(false);
       if (!options.skipHash && helpSectionFromHash()) {
-        history.pushState(null, "", location.pathname + location.search);
+        const next = savedJobHash ? "#" + savedJobHash : location.pathname + location.search;
+        history.pushState(null, "", next);
       }
-      const restore = helpLastFocus && document.contains(helpLastFocus) ? helpLastFocus : $("helpBtn");
-      if (!options.skipFocus) restore.focus();
+      if (!options.skipFocus) $("helpBtn").focus();
     }
 
-    function onHashChange() {
+    function applyLocationHash(options) {
+      options = options || {};
       const help = helpSectionFromHash();
       if (help) {
-        openHelp(help, { skipHash: true });
+        openHelp(help, { skipHash: true, skipFocus: options.skipFocus });
         return;
       }
       if (helpOpen) closeHelp({ skipHash: true, skipFocus: true });
@@ -1400,13 +1428,20 @@ uv run mesh query --url http://127.0.0.1:8090 --node node-b --sql "SELECT 1"</pr
     $("helpBackdrop").addEventListener("click", function () { closeHelp(); });
     $("helpSearch").addEventListener("input", filterHelp);
     document.addEventListener("keydown", function (event) {
-      if (!helpOpen) return;
       if (event.key === "Escape") {
-        event.preventDefault();
-        closeHelp();
+        if (helpOpen) {
+          event.preventDefault();
+          closeHelp();
+          return;
+        }
+        const active = document.activeElement;
+        if (active && active.closest && active.closest(".tip-wrap")) {
+          event.preventDefault();
+          active.blur();
+        }
         return;
       }
-      if (event.key !== "Tab") return;
+      if (!helpOpen || event.key !== "Tab") return;
       const nodes = helpFocusables();
       if (!nodes.length) return;
       const first = nodes[0];
@@ -1419,7 +1454,7 @@ uv run mesh query --url http://127.0.0.1:8090 --node node-b --sql "SELECT 1"</pr
         first.focus();
       }
     });
-    window.addEventListener("hashchange", onHashChange);
+    window.addEventListener("hashchange", function () { applyLocationHash(); });
 
     (async function init() {
       applyTheme(storedTheme());
@@ -1443,15 +1478,12 @@ uv run mesh query --url http://127.0.0.1:8090 --node node-b --sql "SELECT 1"</pr
         await loadAnalytics();
         await loadModels();
         await loadConnectors();
-        const helpSection = helpSectionFromHash();
-        if (helpSection) openHelp(helpSection, { skipHash: true, skipFocus: true });
-        const jobId = jobIdFromHash();
-        if (jobId && state.kind === "plane") await openJob(jobId);
       } catch (err) {
         $("modeLabel").textContent = "Could not reach API: " + err.message;
         showBanner("The API did not respond. Check that this page is served by mesh node or plane.", "err");
         setStatus($("connectorsStatus"), "Connectors unavailable.", "status err");
       }
+      applyLocationHash({ skipFocus: !helpSectionFromHash() });
     })();
   </script>
 </body>
