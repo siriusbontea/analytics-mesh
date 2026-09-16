@@ -76,6 +76,15 @@
 
 **Exit:** Smoke-testable UI on node and plane; `uv run pytest` green.
 
-## 7. Not in M6 / v1
+## 7. M7 tasks (implemented)
+
+1. In-app Help drawer on the shared static `/ui`: topbar Help, right-side dialog, Close / Esc / backdrop dismiss, section nav + search, `#help` / `#help=<section>` deep links.
+2. Sections: Getting started, Concepts, CLI vs UI, Receipts, Plane vs node, Policy, MCP — copy aligned with shipped behavior (data on nodes, plane pointers only, propose-then-confirm, hash-chained receipts, YAML allowlists, analytics-only MCP).
+3. Accessible hover+focus tooltips (`role="tooltip"` + `aria-describedby`) on every major control (theme, principal, node, run kind, analytic, SQL, propose/confirm, explain, run, connectors/jobs refresh, job links, copy/verify receipt, download, chart).
+4. Tests: Help/tip HTML hooks in `tests/test_ui_help.py`; existing `/ui` serve tests still pass. README M7 note.
+
+**Exit:** Help usable without leaving `/ui`; `uv run pytest` green.
+
+## 8. Not in M7 / v1
 
 Federated learning, Hermes learning loop, messaging gateways, full OPA deployment, Axonis decision graph UI.

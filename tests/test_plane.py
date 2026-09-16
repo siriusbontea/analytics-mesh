@@ -247,6 +247,8 @@ def test_plane_serves_ui(tmp_path: Path):
     assert "Analytics Mesh" in html
     assert "node" in html.lower()
     assert 'id="principal"' in html
+    assert 'id="helpBtn"' in html
+    assert 'id="help-plane-vs-node"' in html
     assert 'id="jobsPanel"' in html
     assert "/jobs" in html
     assert "/nodes/" in html and "/connectors" in html

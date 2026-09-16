@@ -2,7 +2,7 @@
 
 Query-first local analytics. Point a node at a directory of CSV, Parquet, or JSON files, run sandboxed DuckDB SQL, and get a Parquet artifact plus a hash-chained receipt. No LLM is required.
 
-M1 is a **single node** on one machine. M2 adds a thin **control plane** that registers nodes and routes `run_query` to a target node. The plane stores job metadata and pointers only — not source tables. M3 adds a **versioned analytic registry**, a **minimal web UI**, and optional **OpenAI-compatible model config**. M4 adds **YAML policy allowlists**, **artifact retention/size caps**, a **read-only Postgres connector**, and optional **NL→SQL assist** that never auto-executes. M5 completes v1: an **analytics-only MCP adapter**, an optional **Polars engine**, and a **main → fallback** assist chain recorded on receipts. M6 polishes that same **single-file `/ui`**: dark/light theme, connectors and plane jobs, receipt verify/copy, an editable principal, and a light SVG bar chart on suitable previews. Analytics still work with **zero** LLM configured.
+M1 is a **single node** on one machine. M2 adds a thin **control plane** that registers nodes and routes `run_query` to a target node. The plane stores job metadata and pointers only — not source tables. M3 adds a **versioned analytic registry**, a **minimal web UI**, and optional **OpenAI-compatible model config**. M4 adds **YAML policy allowlists**, **artifact retention/size caps**, a **read-only Postgres connector**, and optional **NL→SQL assist** that never auto-executes. M5 completes v1: an **analytics-only MCP adapter**, an optional **Polars engine**, and a **main → fallback** assist chain recorded on receipts. M6 polishes that same **single-file `/ui`**: dark/light theme, connectors and plane jobs, receipt verify/copy, an editable principal, and a light SVG bar chart on suitable previews. M7 adds an in-page **Help drawer** and accessible **tooltips** so you can learn the tool without leaving `/ui`. Analytics still work with **zero** LLM configured.
 
 ## Requirements
 
@@ -28,7 +28,7 @@ uv run mesh analytics run top_products
 uv run mesh query --sql "SELECT product, SUM(amount) AS total FROM sales GROUP BY product ORDER BY total DESC"
 ```
 
-Open the node web UI at [http://127.0.0.1:8080/ui](http://127.0.0.1:8080/ui): pick an analytic or paste SQL, view the result table and a light bar chart when the preview has a label + numeric pair, download the Parquet artifact, and inspect the receipt.
+Open the node web UI at [http://127.0.0.1:8080/ui](http://127.0.0.1:8080/ui): pick an analytic or paste SQL, view the result table and a light bar chart when the preview has a label + numeric pair, download the Parquet artifact, and inspect the receipt. Use **Help** (or `#help`) for in-page docs and hover/focus tips on the controls.
 
 The query command prints JSON with `artifact` (Parquet path + sha256) and `receipt` (id, prev_hash, receipt_hash). Fetch the receipt again with:
 
@@ -205,7 +205,7 @@ The same static page is served from **both** the node and the plane:
 | Node (`mesh serve`) | http://127.0.0.1:8080/ui | Talks to that node only |
 | Plane (`mesh plane`) | http://127.0.0.1:8090/ui | Pick a registered node, then run |
 
-Pick an analytic or paste SQL, view the result table, download the artifact, and read the receipt. There is no decision-case workflow. Use **Propose SQL** then **Confirm and run proposed SQL** for NL→SQL; the propose step never executes. M6 keeps this a single static file (no frontend build): Run / Result / Receipt sit as equal panels, with connectors, plane jobs, theme, and receipt helpers described below.
+Pick an analytic or paste SQL, view the result table, download the artifact, and read the receipt. There is no decision-case workflow. Use **Propose SQL** then **Confirm and run proposed SQL** for NL→SQL; the propose step never executes. M6 keeps this a single static file (no frontend build): Run / Result / Receipt sit as equal panels, with connectors, plane jobs, theme, and receipt helpers described below. M7 adds the **Help** drawer (`#help` / `#help=receipts`) and hover/focus tooltips on the major controls.
 
 ### Models (optional)
 
@@ -293,6 +293,7 @@ M1–M5 together are v1: query where the data lives, return an artifact plus a v
 | M4 | YAML policy, artifact caps, Postgres connector, NL→SQL confirm |
 | M5 | MCP analytics toolset, optional Polars engine, fallback receipts |
 | M6 | Browser UI polish: theme, connectors/jobs, receipt helpers, SVG chart |
+| M7 | In-UI Help drawer and accessible tooltips |
 
 ### MCP adapter (analytics toolset only)
 
@@ -380,6 +381,10 @@ The same `packages/mesh_common/src/mesh_common/static/ui.html` is still served a
 - **Receipt:** copy receipt id, **Verify chain** (`GET /receipts/chain` or the node-scoped plane path), plus a collapsed summary instead of only a JSON wall.
 - **Principal:** editable field (default `web`) sent on run / assist instead of a hard-coded value.
 - **Chart:** when a preview has a string-ish label column and a numeric column (and not too many rows), a small SVG bar chart renders above the table. Other shapes stay table-only.
+
+## M7 — Help drawer and tooltips
+
+Still the same `ui.html`. **Help** in the topbar opens a right-side drawer (Close, Esc, or backdrop). Sections cover getting started, concepts, CLI vs UI, receipts, plane vs node, policy, and the analytics-only MCP tools. `#help` or `#help=<section>` deep-links into a section. Hover or focus a control (or its **?**) for a short tooltip: what it is, and what happens when you use it.
 
 ## Docs
 
