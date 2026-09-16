@@ -3,7 +3,7 @@ from __future__ import annotations
 import hmac
 from datetime import datetime, timezone
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import Response
 
 from mesh_common.hashing import sha256_text
@@ -138,6 +138,27 @@ def create_app(config: PlaneConfig | None = None, proxy: NodeProxy | None = None
     def node_connectors(node_id: str) -> dict[str, object]:
         node = _require_node(store, node_id)
         return node_proxy.list_connectors(node.endpoint)
+
+    @app.post("/nodes/{node_id}/upload")
+    async def node_upload(
+        node_id: str,
+        file: UploadFile = File(...),
+        principal: str = Form("web"),
+        connector_id: str | None = Form(None),
+    ) -> dict[str, object]:
+        node = _require_node(store, node_id)
+        content = await file.read()
+        try:
+            return node_proxy.upload(
+                node.endpoint,
+                filename=file.filename or "upload",
+                content=content,
+                content_type=file.content_type,
+                principal=principal,
+                connector_id=connector_id,
+            )
+        finally:
+            await file.close()
 
     @app.get("/nodes/{node_id}/models")
     def node_models(node_id: str, probe: bool = False) -> dict[str, object]:

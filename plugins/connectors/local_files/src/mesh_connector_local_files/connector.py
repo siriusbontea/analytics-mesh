@@ -11,6 +11,7 @@ import pyarrow.json as pa_json
 import pyarrow.parquet as pq
 
 from mesh_common.schemas import ColumnSchema, TableSchema
+from mesh_common.uploads import resolve_uploads_dir
 
 __version__ = "0.1.0"
 
@@ -68,11 +69,17 @@ class LocalFilesConnector:
         root: Path | str,
         connector_id: str = "local_files",
         labels: list[str] | None = None,
+        uploads_path: Path | str | None = None,
     ) -> None:
         self.root = Path(root)
         self.id = connector_id
         self.version = __version__
         self.sensitivity_labels = list(labels or [])
+        self.uploads_path = Path(uploads_path) if uploads_path is not None else None
+
+    @property
+    def uploads_dir(self) -> Path:
+        return resolve_uploads_dir(self.root, self.uploads_path)
 
     def discover_schema(self) -> list[TableSchema]:
         if not self.root.exists():

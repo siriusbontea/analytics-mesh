@@ -43,6 +43,7 @@ from mesh_common.schemas import (
     Receipt,
     ResultPreview,
     TableSchema,
+    UploadResponse,
 )
 
 __version__ = "0.1.0"
@@ -89,6 +90,7 @@ __all__ = [
     "ReceiptStore",
     "ResultPreview",
     "TableSchema",
+    "UploadResponse",
     "YamlPolicy",
     "generate_keypair",
     "assist_attribution",

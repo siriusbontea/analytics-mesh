@@ -250,8 +250,10 @@ def test_plane_serves_ui(tmp_path: Path):
     assert 'id="helpBtn"' in html
     assert 'id="help-plane-vs-node"' in html
     assert 'id="jobsPanel"' in html
+    assert 'id="uploadZone"' in html
     assert "/jobs" in html
     assert "/nodes/" in html and "/connectors" in html
+    assert "/upload" in html
     assert "verify chain" in html.lower()
     assert 'id="chartPreview"' in html
 

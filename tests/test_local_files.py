@@ -6,6 +6,7 @@ from pathlib import Path
 import pyarrow as pa
 import pyarrow.parquet as pq
 
+from mesh_common.uploads import UPLOADS_DIRNAME
 from mesh_connector_local_files import LocalFilesConnector
 
 
@@ -72,6 +73,11 @@ def test_example_samples_dir_exposes_sales(tmp_path: Path):
     tables = {item.name: item for item in discovered}
     assert "sales" in tables
     assert tables["sales"].source_path.endswith("data/samples/sales.csv")
+
+
+def test_uploads_dir_defaults_under_root(tmp_path: Path):
+    connector = LocalFilesConnector(root=tmp_path, connector_id="local_files")
+    assert connector.uploads_dir == (tmp_path / UPLOADS_DIRNAME).resolve()
 
 
 def test_ignores_unknown_extensions(tmp_path: Path, sales_csv_text: str):

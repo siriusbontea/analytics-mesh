@@ -869,6 +869,7 @@ dependencies = [
     { name = "mesh-connector-postgres" },
     { name = "mesh-engine-duckdb" },
     { name = "mesh-engine-polars" },
+    { name = "python-multipart" },
     { name = "pyyaml" },
     { name = "uvicorn", extra = ["standard"] },
 ]
@@ -882,6 +883,7 @@ requires-dist = [
     { name = "mesh-connector-postgres", editable = "plugins/connectors/postgres" },
     { name = "mesh-engine-duckdb", editable = "plugins/engines/duckdb_engine" },
     { name = "mesh-engine-polars", editable = "plugins/engines/polars_engine" },
+    { name = "python-multipart", specifier = ">=0.0.9" },
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.32" },
 ]
@@ -894,6 +896,7 @@ dependencies = [
     { name = "fastapi" },
     { name = "httpx" },
     { name = "mesh-common" },
+    { name = "python-multipart" },
     { name = "pyyaml" },
     { name = "uvicorn", extra = ["standard"] },
 ]
@@ -903,6 +906,7 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.115" },
     { name = "httpx", specifier = ">=0.27" },
     { name = "mesh-common", editable = "packages/mesh_common" },
+    { name = "python-multipart", specifier = ">=0.0.9" },
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.32" },
 ]

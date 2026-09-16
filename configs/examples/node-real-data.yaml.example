@@ -20,6 +20,9 @@ connectors:
     # Change this to a real directory on this machine (absolute path recommended).
     root: /var/lib/analytics-mesh/data
     labels: [personal]  # or [work], [sensitive], ...
+    # Uploads from the plane/node UI land in <root>/uploads unless uploads_path is set
+    # (must stay under root so discover_schema sees the new tables).
+    # uploads_path: uploads
 analytics_dir: analytics
 policy_path: configs/examples/policy.yaml
 limits:

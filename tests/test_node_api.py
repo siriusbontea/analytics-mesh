@@ -202,6 +202,8 @@ def test_ui_is_served(tmp_path: Path, data_dir: Path):
         assert 'id="tip-run"' in html
         assert "prefers-color-scheme" in html
         assert 'id="connectorsPanel"' in html
+        assert 'id="uploadZone"' in html
+        assert 'id="uploadBrowse"' in html
         assert 'id="jobsPanel"' in html
         assert 'id="chartPreview"' in html
         assert "pickBarChart" in html

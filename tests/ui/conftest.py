@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 import signal
 import socket
 import subprocess
@@ -50,6 +51,8 @@ def live_node(tmp_path_factory: pytest.TempPathFactory) -> Iterator[str]:
     """Hermetic node on an ephemeral port (same shape as scripts/deep-smoke.sh --start)."""
     tmp_dir = tmp_path_factory.mktemp("mesh-ui-node")
     port = _free_port()
+    samples = tmp_dir / "samples"
+    shutil.copytree(REPO / "data" / "samples", samples)
     config_path = tmp_dir / "node.yaml"
     config_path.write_text(
         yaml.safe_dump(
@@ -64,7 +67,7 @@ def live_node(tmp_path_factory: pytest.TempPathFactory) -> Iterator[str]:
                     {
                         "id": "local_files",
                         "type": "local_files",
-                        "root": str(REPO / "data" / "samples"),
+                        "root": str(samples),
                         "labels": ["personal"],
                     }
                 ],

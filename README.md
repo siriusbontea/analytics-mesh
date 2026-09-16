@@ -2,7 +2,7 @@
 
 Query-first local analytics. Point a node at a directory of CSV, Parquet, or JSON files, run sandboxed DuckDB SQL, and get a Parquet artifact plus a hash-chained receipt. No LLM is required.
 
-M1 is a **single node** on one machine. M2 adds a thin **control plane** that registers nodes and routes `run_query` to a target node. The plane stores job metadata and pointers only — not source tables. M3 adds a **versioned analytic registry**, a **minimal web UI**, and optional **OpenAI-compatible model config**. M4 adds **YAML policy allowlists**, **artifact retention/size caps**, a **read-only Postgres connector**, and optional **NL→SQL assist** that never auto-executes. M5 completes v1: an **analytics-only MCP adapter**, an optional **Polars engine**, and a **main → fallback** assist chain recorded on receipts. M6 polishes that same **single-file `/ui`**: dark/light theme, connectors and plane jobs, receipt verify/copy, an editable principal, and a light SVG bar chart on suitable previews. M7 adds an in-page **Help drawer** and accessible **tooltips** so you can learn the tool without leaving `/ui`. M8 fixes **`mesh receipt --verify-chain` against a direct node**, adds **GitHub Actions CI**, and ships **`scripts/deep-smoke.sh`**. M9 adds **Playwright browser tests** for `/ui` (Help drawer + a successful `top_products` run) in a separate CI job. M10 makes optional **Propose SQL** usable against a local OpenAI-compatible endpoint (Ollama / LM Studio) via `configs/examples/node-with-models.yaml`. M11 hardens **pairing tokens**, **listen/Tailscale posture**, and **systemd units** for real machines without changing localhost demo defaults. M12 adds optional **xAI Grok** as an OpenAI-compatible frontier provider (`node-with-grok.yaml` or local-then-Grok fallback). Analytics still work with **zero** LLM configured.
+M1 is a **single node** on one machine. M2 adds a thin **control plane** that registers nodes and routes `run_query` to a target node. The plane stores job metadata and pointers only — not source tables. M3 adds a **versioned analytic registry**, a **minimal web UI**, and optional **OpenAI-compatible model config**. M4 adds **YAML policy allowlists**, **artifact retention/size caps**, a **read-only Postgres connector**, and optional **NL→SQL assist** that never auto-executes. M5 completes v1: an **analytics-only MCP adapter**, an optional **Polars engine**, and a **main → fallback** assist chain recorded on receipts. M6 polishes that same **single-file `/ui`**: dark/light theme, connectors and plane jobs, receipt verify/copy, an editable principal, and a light SVG bar chart on suitable previews. M7 adds an in-page **Help drawer** and accessible **tooltips** so you can learn the tool without leaving `/ui`. M8 fixes **`mesh receipt --verify-chain` against a direct node**, adds **GitHub Actions CI**, and ships **`scripts/deep-smoke.sh`**. M9 adds **Playwright browser tests** for `/ui` (Help drawer + a successful `top_products` run) in a separate CI job. M10 makes optional **Propose SQL** usable against a local OpenAI-compatible endpoint (Ollama / LM Studio) via `configs/examples/node-with-models.yaml`. M11 hardens **pairing tokens**, **listen/Tailscale posture**, and **systemd units** for real machines without changing localhost demo defaults. M12 adds optional **xAI Grok** as an OpenAI-compatible frontier provider (`node-with-grok.yaml` or local-then-Grok fallback). M13 makes the **plane `/ui` the product entry** and adds **CSV/Parquet/JSON upload** onto the selected node (plane proxies; files land under that node’s `local_files` `uploads/`). Analytics still work with **zero** LLM configured.
 
 ## Requirements
 
@@ -11,24 +11,34 @@ M1 is a **single node** on one machine. M2 adds a thin **control plane** that re
 
 ## Run on one machine (~5 minutes)
 
-From the repo root:
+The **product UI is the plane** — one URL, even with a single node. From the repo root:
 
 ```bash
 uv sync
+uv run mesh plane --config configs/examples/plane.yaml
+```
+
+In another terminal:
+
+```bash
 uv run mesh serve --config configs/examples/node.yaml
 ```
 
-In another terminal, still from the repo root:
+Open **[http://127.0.0.1:8090/ui](http://127.0.0.1:8090/ui)**. Pick the registered node (`local-dev`), drop a CSV onto the connectors panel (or **Browse**), then run `top_products` or ad-hoc SQL. Files land on that node under `data/samples/uploads/`; the plane never stores source tables.
+
+CLI against the same plane:
 
 ```bash
-uv run mesh health
-uv run mesh connectors
-uv run mesh analytics list
-uv run mesh analytics run top_products
-uv run mesh query --sql "SELECT product, SUM(amount) AS total FROM sales GROUP BY product ORDER BY total DESC"
+uv run mesh health --url http://127.0.0.1:8090
+uv run mesh nodes --url http://127.0.0.1:8090
+uv run mesh analytics run top_products --url http://127.0.0.1:8090 --node local-dev
+uv run mesh query --url http://127.0.0.1:8090 --node local-dev \
+  --sql "SELECT product, SUM(amount) AS total FROM sales GROUP BY product ORDER BY total DESC"
 ```
 
-Open the node web UI at [http://127.0.0.1:8080/ui](http://127.0.0.1:8080/ui): pick an analytic or paste SQL, view the result table and a light bar chart when the preview has a label + numeric pair, download the Parquet artifact, and inspect the receipt. Use **Help** (or `#help`) for in-page docs and hover/focus tips on the controls.
+Or start only a node and use the operator/debug UI at [http://127.0.0.1:8080/ui](http://127.0.0.1:8080/ui) (`uv run mesh serve`). Direct-node CLI still works (`uv run mesh health`, `mesh query`, …). Use **Help** (or `#help`) for in-page docs.
+
+`uv run mesh demo` (or `./scripts/two-node-demo.sh`) boots plane + two sample nodes and prints the same plane URL.
 
 The query command prints JSON with `artifact` (Parquet path + sha256) and `receipt` (id, prev_hash, receipt_hash). Fetch the receipt again with:
 
@@ -118,7 +128,7 @@ uv run mesh jobs --url http://127.0.0.1:8090
 uv run mesh receipt <receipt_id> --url http://127.0.0.1:8090 --verify-chain
 ```
 
-The plane UI at [http://127.0.0.1:8090/ui](http://127.0.0.1:8090/ui) lets you pick a registered node, then run an analytic or SQL the same way. Direct-to-node UI remains on each node (`http://127.0.0.1:8082/ui` for Node B).
+**Product UI (one URL):** [http://127.0.0.1:8090/ui](http://127.0.0.1:8090/ui) — pick a registered node, drop a file, run an analytic or SQL. Direct-to-node UI remains for operators (`http://127.0.0.1:8082/ui` for Node B).
 
 The query JSON includes a `job` record (`artifact_pointer`, `receipt_pointer`) and the node's artifact/receipt metadata. The Parquet file and hash-chained receipt stay under `var/node-b/`. The plane SQLite at `var/plane/plane.sqlite` has job rows only — no source CSV.
 
@@ -156,9 +166,9 @@ uv run pytest -m ui --browser chromium
 
 ```
 packages/mesh_common/     schemas, hash-chained receipts, analytic registry, OpenAI-compatible LLM client, web UI
-packages/mesh_node/       FastAPI node: health, connectors, analytics, query, results, receipts, models, /ui
-packages/mesh_plane/      thin control plane: node registry, jobs, proxy run_query / run_analytic, /ui
-packages/mesh_client/     CLI: serve / plane / pair / nodes / jobs / query / analytics / assist / mcp / receipt
+packages/mesh_node/       FastAPI node: health, connectors, upload, analytics, query, results, receipts, models, /ui
+packages/mesh_plane/      thin control plane: node registry, jobs, proxy run_query / run_analytic / upload, /ui
+packages/mesh_client/     CLI: serve / plane / demo / pair / nodes / jobs / query / analytics / assist / mcp / receipt
 packages/mesh_mcp/        analytics-only MCP adapter (stdio or HTTP)
 plugins/connectors/local_files/
 plugins/connectors/postgres/
@@ -186,6 +196,7 @@ tests/                    unit/API; tests/ui/ is Playwright (`pytest -m ui`)
 | GET | `/connectors` | Connector ids, versions, discovered tables |
 | GET | `/analytics` | Registered analytics (id, semver, engine, SQL) |
 | POST | `/analytics/run` | Run by `analytic_id` (optional `version`) |
+| POST | `/upload` | Multipart CSV/Parquet/JSON onto this node’s `local_files` `uploads/` (receipt + table names) |
 | POST | `/query` | Sandboxed SQL + row/time limits (policy-gated) |
 | GET | `/results/{artifact_id}` | Parquet download |
 | GET | `/results/{artifact_id}/preview` | JSON table preview |
@@ -199,12 +210,13 @@ tests/                    unit/API; tests/ui/ is Playwright (`pytest -m ui`)
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| GET | `/` or `/ui` | Browser UI (pick a registered node) |
+| GET | `/` or `/ui` | Product UI (pick a registered node; upload + run) |
 | GET | `/health` | Plane status + registered node count |
 | POST | `/nodes/register` | Pair a node (token + Ed25519 signature) |
 | GET | `/nodes` | Node directory |
 | GET | `/nodes/{node_id}/analytics` | Proxy `list_analytics` |
 | GET | `/nodes/{node_id}/connectors` | Proxy `list_connectors` |
+| POST | `/nodes/{node_id}/upload` | Proxy multipart upload to that node (plane does not store the file) |
 | POST | `/nodes/{node_id}/assist/nl2sql` | Proxy NL→SQL propose (never executes) |
 | POST | `/nodes/{node_id}/assist/explain` | Proxy explain assist |
 | POST | `/query` | Create a job and proxy `run_query` to `node_id` |
@@ -250,10 +262,10 @@ The same static page is served from **both** the node and the plane:
 
 | Process | URL | Behavior |
 | --- | --- | --- |
-| Node (`mesh serve`) | http://127.0.0.1:8080/ui | Talks to that node only |
-| Plane (`mesh plane`) | http://127.0.0.1:8090/ui | Pick a registered node, then run |
+| Plane (`mesh plane` / `mesh demo`) | http://127.0.0.1:8090/ui | **Product entry.** Pick a registered node, upload files, then run |
+| Node (`mesh serve`) | http://127.0.0.1:8080/ui | Operator / debug; talks to that node only |
 
-Pick an analytic or paste SQL, view the result table, download the artifact, and read the receipt. There is no decision-case workflow. Use **Propose SQL** then **Confirm and run proposed SQL** for NL→SQL; the propose step never executes. M6 keeps this a single static file (no frontend build): Run / Result / Receipt sit as equal panels, with connectors, plane jobs, theme, and receipt helpers described below. M7 adds the **Help** drawer (`#help` / `#help=receipts`) and hover/focus tooltips on the major controls.
+Pick an analytic or paste SQL, view the result table, download the artifact, and read the receipt. There is no decision-case workflow. Use **Propose SQL** then **Confirm and run proposed SQL** for NL→SQL; the propose step never executes. M6 keeps this a single static file (no frontend build): Run / Result / Receipt sit as equal panels, with connectors, plane jobs, theme, and receipt helpers described below. M7 adds the **Help** drawer (`#help` / `#help=receipts`) and hover/focus tooltips on the major controls. M13 adds a drop zone / Browse control on the connectors panel; files upload to the **selected node**.
 
 ### Models (optional)
 
@@ -407,6 +419,7 @@ M1–M5 together are v1: query where the data lives, return an artifact plus a v
 | M10 | Local OpenAI-compatible Propose SQL (`node-with-models.yaml`, Ollama / LM Studio) |
 | M11 | Pair-token env override, listen/Tailscale docs, systemd + real data dirs |
 | M12 | Optional xAI Grok frontier (`node-with-grok` / local-then-Grok) |
+| M13 | Plane-first product UI + node file upload (CSV/Parquet/JSON) |
 
 ### MCP adapter (analytics toolset only)
 
@@ -548,7 +561,7 @@ Default `listen_host` is `127.0.0.1` on node, plane, and MCP. For two machines o
 Example nodes read `data/samples` (and `data/samples/node-b` on Node B). To point `local_files` at a real directory:
 
 1. Copy `configs/examples/node-real-data.yaml.example` (no secrets) to a local config.
-2. Set `connectors[].root` to an absolute path this node may read.
+2. Set `connectors[].root` to an absolute path this node may read. UI uploads land in `<root>/uploads` (or `uploads_path` if set; it must stay under `root`).
 3. Keep `labels` accurate (`personal`, `work`, `sensitive`, ...). Labels are advisory metadata for policy/UI/receipts — they are not encryption.
 
 ```yaml
@@ -596,6 +609,16 @@ Default `node.yaml` is still LLM-free. Two opt-in examples:
 | `node-with-local-then-grok.yaml` → `models-local-then-grok.yaml` | Same local Ollama placeholders as `models.yaml`; Grok in `fallback`; `allow_frontier` so fallback can fire when local fails |
 
 `models.policy.default_mode: allow_frontier` is the models-file opt-in that lets assist use frontier slots even when example `policy.yaml` principals are `local_only`. Keep `local_only` on `models.yaml` so the OpenRouter example fallback does not fire unless a principal (or a Grok example file) allows frontier. No key is stored in git; Grok is never required; `/assist/nl2sql` still never executes SQL.
+
+## M13 — plane-first UI and node upload
+
+The shared `ui.html` is still one static file (no React, no analysis canvas).
+
+- **Product entry** is the plane: `http://127.0.0.1:8090/ui`. Single-machine (plane + one registered node) uses that same URL. Direct node `/ui` stays for operators.
+- **Upload** is a drop zone + Browse on the connectors panel when a node is selected (on a direct node UI the node is implicit). Allowed: `.csv`, `.parquet`, `.json`, `.jsonl` (plus the existing `.tsv` / `.pq` / `.ndjson` aliases). Default cap is 100 MiB (`uploads.max_bytes`), aligned with artifact file caps. Basenames are sanitized; absolute paths and `..` traversal are rejected.
+- Files land on the **node** under that connector’s `local_files` root in `uploads/` (or `uploads_path` if set and still under the root). The plane `POST /nodes/{id}/upload` proxies the multipart body and stores nothing.
+- A hash-chained receipt (`action: upload`) records principal, node, filename, SHA-256, and status. After success the UI refreshes connectors and shows the new table name(s).
+- Manual check: start plane + node(s), open the plane UI, drop a CSV, see the table, run an analytic or SQL. `pytest` is the gate; Playwright covers the drop zone / Browse control and a small CSV happy path.
 
 ## Docs
 

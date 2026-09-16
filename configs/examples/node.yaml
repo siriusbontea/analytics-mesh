@@ -12,6 +12,10 @@ connectors:
     type: local_files
     root: data/samples
     labels: [personal]
+    # UI / POST /upload writes here (under root). Override with uploads_path if needed.
+    # uploads_path: uploads
+uploads:
+  max_bytes: 104857600   # 100 MiB, same order as artifacts.max_bytes_per_file
 analytics_dir: analytics
 policy_path: configs/examples/policy.yaml
 limits:

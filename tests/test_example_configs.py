@@ -95,6 +95,7 @@ def test_default_example_node_is_llm_free():
     assert node.models_path is None
     assert node.models.main is None
     assert node.models.is_configured() is False
+    assert node.uploads.max_bytes == 104857600
     text = (REPO / "configs/examples/node.yaml").read_text()
     assert "models_path:" in text
     assert text.split("models_path:")[0].rstrip().endswith("#") or "# models_path:" in text

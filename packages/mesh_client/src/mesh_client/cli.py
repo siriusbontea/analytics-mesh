@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 from typing import Literal, Optional
 
@@ -127,7 +128,8 @@ def serve(
     listen_host = host or cfg.resolved_listen_host()
     listen_port = port or cfg.resolved_listen_port()
     typer.echo(f"serving node {cfg.node_id} on http://{listen_host}:{listen_port}")
-    typer.echo(f"web UI: http://{listen_host}:{listen_port}/ui")
+    typer.echo(f"operator UI (this node): http://{listen_host}:{listen_port}/ui")
+    typer.echo("product UI is the plane /ui after this node is registered")
     uvicorn.run(create_app(cfg), host=listen_host, port=listen_port, log_level="info")
 
 
@@ -145,8 +147,28 @@ def serve_plane(
     listen_host = host or cfg.resolved_listen_host()
     listen_port = port or cfg.resolved_listen_port()
     typer.echo(f"serving plane {cfg.plane_id} on http://{listen_host}:{listen_port}")
-    typer.echo(f"web UI: http://{listen_host}:{listen_port}/ui (pick a registered node)")
+    typer.echo(f"product UI (one URL): http://{listen_host}:{listen_port}/ui")
+    typer.echo("pick a registered node; file uploads and queries run on that node")
     uvicorn.run(create_app(cfg), host=listen_host, port=listen_port, log_level="info")
+
+
+def _repo_root() -> Path:
+    for parent in Path(__file__).resolve().parents:
+        script = parent / "scripts" / "two-node-demo.sh"
+        if script.is_file():
+            return parent
+    return Path.cwd()
+
+
+@app.command()
+def demo() -> None:
+    """Start the localhost plane+nodes demo. Product UI is the plane (one URL)."""
+    script = _repo_root() / "scripts" / "two-node-demo.sh"
+    if not script.is_file():
+        raise typer.BadParameter(f"demo script not found: {script}")
+    typer.echo("Product UI (one URL): http://127.0.0.1:8090/ui")
+    typer.echo("Pick a node, drop a CSV, run an analytic or SQL. Ctrl-C stops the demo.")
+    raise typer.Exit(subprocess.call(["bash", str(script)]))
 
 
 @app.command()

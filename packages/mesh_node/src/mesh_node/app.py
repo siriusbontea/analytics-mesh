@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 import httpx
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 
 from mesh_common.policy import PolicyDenied
@@ -15,7 +15,9 @@ from mesh_common.schemas import (
     AssistNl2SqlRequest,
     QueryRequest,
     QueryResponse,
+    UploadResponse,
 )
+from mesh_common.uploads import UploadRejected
 from mesh_common.web import mount_ui
 from mesh_node.config import NodeConfig
 from mesh_node.pairing import register_with_plane
@@ -57,6 +59,31 @@ def create_app(config: NodeConfig | None = None) -> FastAPI:
     @app.get("/connectors")
     def list_connectors() -> dict[str, object]:
         return {"connectors": [item.model_dump(mode="json") for item in runtime.list_connectors()]}
+
+    @app.post("/upload")
+    async def upload_file(
+        file: UploadFile = File(...),
+        principal: str = Form("web"),
+        connector_id: str | None = Form(None),
+    ) -> UploadResponse:
+        content = await file.read()
+        try:
+            return runtime.upload_file(
+                filename=file.filename,
+                content=content,
+                principal=principal,
+                connector_id=connector_id,
+            )
+        except PolicyDenied as exc:
+            raise HTTPException(status_code=403, detail=_policy_detail(exc)) from exc
+        except UploadRejected as exc:
+            detail: dict[str, object] = {"message": str(exc)}
+            if exc.receipt is not None:
+                receipt = exc.receipt
+                detail["receipt"] = receipt.model_dump(mode="json") if hasattr(receipt, "model_dump") else receipt
+            raise HTTPException(status_code=400, detail=detail) from exc
+        finally:
+            await file.close()
 
     @app.get("/analytics")
     def list_analytics() -> dict[str, object]:

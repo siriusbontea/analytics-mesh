@@ -133,6 +133,16 @@
 
 **Exit:** Both example paths loadable; `uv run pytest` green including stub frontier tests; Grok not required.
 
-## 13. Not in M12 / v1
+## 13. M13 tasks (implemented)
 
-Federated learning, Hermes learning loop, messaging gateways, full OPA deployment, Axonis decision graph UI, mTLS/OAuth, classified packaging, or auto-deploy onto operator laptops.
+1. Plane-first product UI: README, Help, `scripts/two-node-demo.sh`, and `mesh demo` emphasize one URL (`http://127.0.0.1:8090/ui`). Direct node `/ui` remains for operators.
+2. Node `POST /upload` (multipart) writes into the selected `local_files` connector’s `uploads/` (or configured `uploads_path` under the root). Allowed `.csv` / `.parquet` / `.json` / `.jsonl` (plus existing aliases). Default 100 MiB cap. Reject traversal / absolute paths; sanitize basename. Receipt `action=upload`.
+3. Plane `POST /nodes/{id}/upload` proxies to the node; plane stores no source tables.
+4. Shared `ui.html`: drop zone + Browse on the connectors panel when a node is selected; refresh connectors; status/toast with new table name(s). Help/tooltip: files upload to the selected node.
+5. Tests: node upload + list connectors, plane proxy, reject extension / traversal; Playwright zone visible + small CSV happy path. pytest is the gate.
+
+**Exit:** `uv run pytest` and `uv run pytest -m ui` green; documented manual path (plane + node → drop CSV → table → analytic/SQL).
+
+## 14. Not in M13 / v1
+
+Federated learning, Hermes learning loop, messaging gateways, full OPA deployment, Axonis decision graph UI, dragging tables into a visual query canvas, uploading to the plane as a data lake, mTLS/OAuth, classified packaging, or auto-deploy onto operator laptops.

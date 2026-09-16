@@ -9,16 +9,24 @@ from pydantic import BaseModel, Field
 from mesh_common.artifacts import ArtifactStoreConfig
 from mesh_common.llm import LlmProviderConfig, load_llm_config
 from mesh_common.secrets import resolve_pair_token
+from mesh_common.uploads import DEFAULT_UPLOAD_MAX_BYTES
 
 
 class ConnectorConfig(BaseModel):
     id: str = "local_files"
     type: str = "local_files"
     root: Path | None = None
+    uploads_path: Path | None = None
     labels: list[str] = Field(default_factory=list)
     dsn: str | None = None
     dsn_env: str | None = None
     schemas: list[str] = Field(default_factory=lambda: ["public"])
+
+
+class UploadConfig(BaseModel):
+    """Inbound file cap. Destination is always under the local_files root."""
+
+    max_bytes: int = DEFAULT_UPLOAD_MAX_BYTES
 
 
 class LimitsConfig(BaseModel):
@@ -51,6 +59,7 @@ class NodeConfig(BaseModel):
     analytics_dir: Path | None = None
     policy_path: Path | None = None
     artifacts: ArtifactStoreConfig = Field(default_factory=ArtifactStoreConfig)
+    uploads: UploadConfig = Field(default_factory=UploadConfig)
     listen_host: str = "127.0.0.1"
     listen_port: int = 8080
     plane: PlaneClientConfig | None = None
