@@ -108,6 +108,7 @@ def test_ask_matching_analytic_confirm_runs(page: Page, live_node: str) -> None:
     page.goto(f"{live_node}/ui", wait_until="domcontentloaded")
     expect(page.locator("#analytic").locator("option[value='top_products']")).to_have_count(1, timeout=15_000)
     page.locator("#question").fill("what are the top products?")
+    page.locator("#question").blur()
     page.locator("#askBtn").click()
     expect(page.locator("#analyticMatch")).to_be_visible()
     expect(page.locator("#analyticMatch")).to_contain_text("top_products")
@@ -122,6 +123,7 @@ def test_ask_matching_analytic_confirm_runs(page: Page, live_node: str) -> None:
 def test_ask_without_match_shows_configure_models(page: Page, live_node: str) -> None:
     page.goto(f"{live_node}/ui", wait_until="domcontentloaded")
     page.locator("#question").fill("how many rows are in sales?")
+    page.locator("#question").blur()
     page.locator("#askBtn").click()
     expect(page.locator("#askEmpty")).to_be_visible()
     expect(page.locator("#askEmpty")).to_contain_text("node-with-models.yaml")
@@ -140,6 +142,7 @@ def test_ask_propose_then_confirm_with_stubbed_assist(page: Page, live_node: str
     )
     page.goto(f"{live_node}/ui", wait_until="domcontentloaded")
     page.locator("#question").fill("how many rows are in sales?")
+    page.locator("#question").blur()
     page.locator("#askBtn").click()
     expect(page.locator("#proposedSqlView")).to_be_visible()
     expect(page.locator("#proposedSqlView")).to_contain_text("FROM sales")
