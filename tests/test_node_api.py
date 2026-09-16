@@ -197,6 +197,9 @@ def test_ui_is_served(tmp_path: Path, data_dir: Path):
         assert "confirm and run proposed sql" in html.lower()
         assert 'id="principal"' in html
         assert 'id="themeToggle"' in html
+        assert 'id="helpBtn"' in html
+        assert 'id="helpDrawer"' in html
+        assert 'id="tip-run"' in html
         assert "prefers-color-scheme" in html
         assert 'id="connectorsPanel"' in html
         assert 'id="jobsPanel"' in html

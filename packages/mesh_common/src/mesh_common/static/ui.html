@@ -113,7 +113,7 @@
       flex-wrap: wrap;
     }
     .field.compact { margin: 0; min-width: 10rem; }
-    .field.compact span {
+    .field.compact > span {
       display: block;
       font-size: 0.75rem;
       font-weight: 650;
@@ -273,6 +273,137 @@
       overflow: hidden;
       clip: rect(0 0 0 0);
     }
+    .label-row {
+      display: flex;
+      align-items: baseline;
+      gap: 0.35rem;
+      margin: 0.6rem 0 0.3rem;
+    }
+    .label-row label { margin: 0; }
+    .tip-wrap {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+    .tip-wrap.block { display: flex; width: 100%; align-items: flex-start; }
+    .tip-wrap.block > select,
+    .tip-wrap.block > textarea,
+    .tip-wrap.block > input[type="text"] { flex: 1 1 auto; }
+    .tip-wrap.block > .tip-trigger { margin-top: 0.4rem; }
+    .tip-trigger {
+      flex: 0 0 auto;
+      width: 1.5rem;
+      height: 1.5rem;
+      margin: 0;
+      padding: 0;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: transparent;
+      color: var(--muted);
+      font-size: 0.75rem;
+      font-weight: 750;
+      line-height: 1;
+    }
+    .tip-pop {
+      position: absolute;
+      z-index: 60;
+      left: 0;
+      top: calc(100% - 1px);
+      width: min(22rem, 72vw);
+      padding: 0.5rem 0.65rem;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--card);
+      color: var(--ink);
+      box-shadow: 0 8px 24px rgb(28 25 23 / 0.14);
+      font-size: 0.82rem;
+      font-weight: 400;
+      line-height: 1.4;
+      text-transform: none;
+      letter-spacing: 0;
+      opacity: 0;
+      visibility: hidden;
+    }
+    .tip-wrap:hover > .tip-pop,
+    .tip-wrap:focus-within > .tip-pop {
+      opacity: 1;
+      visibility: visible;
+    }
+    .top-tools .tip-pop,
+    .section-head .tip-pop { left: auto; right: 0; }
+    .help-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 40;
+      background: rgb(28 25 23 / 0.38);
+    }
+    .help-drawer {
+      position: fixed;
+      top: 0;
+      right: 0;
+      z-index: 50;
+      width: min(32rem, 100vw);
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      background: var(--card);
+      color: var(--ink);
+      border-left: 1px solid var(--line);
+      box-shadow: -8px 0 24px rgb(28 25 23 / 0.12);
+    }
+    .help-drawer[hidden],
+    .help-backdrop[hidden] { display: none !important; }
+    .help-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.95rem 1.1rem 0.7rem;
+      border-bottom: 1px solid var(--line);
+    }
+    .help-head h2 { font-size: 1.1rem; }
+    .help-search {
+      padding: 0.7rem 1.1rem 0.4rem;
+    }
+    .help-nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      padding: 0.35rem 1.1rem 0.75rem;
+      border-bottom: 1px solid var(--line);
+    }
+    .help-nav a {
+      text-decoration: none;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 0.2rem 0.55rem;
+      font-size: 0.8rem;
+      font-weight: 650;
+      color: var(--ink);
+    }
+    .help-nav a.active {
+      background: var(--accent-soft);
+      border-color: transparent;
+    }
+    .help-body {
+      overflow: auto;
+      padding: 0.9rem 1.15rem 2rem;
+      flex: 1;
+    }
+    .help-body article { margin-bottom: 1.4rem; }
+    .help-body h3 { margin: 0 0 0.45rem; font-size: 1rem; }
+    .help-body p, .help-body li { color: var(--ink); }
+    .help-body ul { margin: 0.35rem 0 0.6rem; padding-left: 1.15rem; }
+    .help-body code, .help-body pre {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.78rem;
+    }
+    .help-body pre {
+      max-height: none;
+      margin: 0.45rem 0 0.7rem;
+    }
+    body.help-open { overflow: hidden; }
   </style>
 </head>
 <body>
@@ -284,9 +415,17 @@
     <div class="top-tools">
       <label class="field compact" for="principal">
         <span>Principal</span>
-        <input id="principal" type="text" value="web" autocomplete="username" spellcheck="false">
+        <span class="tip-wrap block">
+          <input id="principal" type="text" value="web" autocomplete="username" spellcheck="false" aria-describedby="tip-principal">
+          <button type="button" class="tip-trigger" aria-describedby="tip-principal" aria-label="About Principal">?</button>
+          <span id="tip-principal" role="tooltip" class="tip-pop">Identity sent with every run and assist call. Policy allowlists decide what this principal may do; unknown principals are denied when configured.</span>
+        </span>
       </label>
-      <button id="themeToggle" type="button" class="ghost" aria-label="Toggle color theme">Theme: Auto</button>
+      <span class="tip-wrap">
+        <button id="themeToggle" type="button" class="ghost" aria-label="Toggle color theme" aria-describedby="tip-theme">Theme: Auto</button>
+        <span id="tip-theme" role="tooltip" class="tip-pop">Cycles Auto, Light, and Dark. Auto follows your system preference; the choice is remembered in this browser only.</span>
+      </span>
+      <button id="helpBtn" type="button" class="ghost" aria-haspopup="dialog" aria-expanded="false" aria-controls="helpDrawer">Help</button>
     </div>
   </header>
 
@@ -297,15 +436,25 @@
     <section id="connectorsPanel">
       <div class="section-head">
         <h2>Connectors</h2>
-        <button id="refreshConnectors" class="ghost small" type="button">Refresh</button>
+        <span class="tip-wrap">
+          <button id="refreshConnectors" class="ghost small" type="button" aria-describedby="tip-connectors-refresh">Refresh</button>
+          <span id="tip-connectors-refresh" role="tooltip" class="tip-pop">Reloads discovered connectors and table names from the target node. Tables stay on the node; this list is metadata only.</span>
+        </span>
       </div>
       <p id="connectorsStatus" class="muted">Loading connectors…</p>
       <div id="connectorsList" class="chip-list"></div>
     </section>
     <section id="jobsPanel" class="hidden">
       <div class="section-head">
-        <h2>Recent jobs</h2>
-        <button id="refreshJobs" class="ghost small" type="button">Refresh</button>
+        <span class="tip-wrap">
+          <h2>Recent jobs</h2>
+          <button type="button" class="tip-trigger" aria-describedby="tip-jobs" aria-label="About recent jobs">?</button>
+          <span id="tip-jobs" role="tooltip" class="tip-pop">Plane job records are metadata and pointers only — not source tables. Succeeded rows use #job= deep links to load that run’s preview and receipt from the owning node.</span>
+        </span>
+        <span class="tip-wrap">
+          <button id="refreshJobs" class="ghost small" type="button" aria-describedby="tip-jobs-refresh">Refresh</button>
+          <span id="tip-jobs-refresh" role="tooltip" class="tip-pop">Reloads recent control-plane jobs. The plane stores status and pointers; artifacts and receipts stay on the node that ran the work.</span>
+        </span>
       </div>
       <p id="jobsStatus" class="muted"></p>
       <div class="scroll">
@@ -319,24 +468,40 @@
       <div class="section-head"><h2>Run</h2></div>
       <div id="nodeWrap" class="hidden">
         <label for="node">Node</label>
-        <select id="node"></select>
+        <span class="tip-wrap block">
+          <select id="node" aria-describedby="tip-node"></select>
+          <button type="button" class="tip-trigger" aria-describedby="tip-node" aria-label="About Node">?</button>
+          <span id="tip-node" role="tooltip" class="tip-pop">Which registered node should execute. Data, artifacts, and the receipt chain stay on that node. The plane only records the job and pointers.</span>
+        </span>
       </div>
       <div class="row">
         <div>
           <label for="kind">Source</label>
-          <select id="kind">
-            <option value="analytic">Registered analytic</option>
-            <option value="sql">Ad-hoc SQL</option>
-          </select>
+          <span class="tip-wrap block">
+            <select id="kind" aria-describedby="tip-kind">
+              <option value="analytic">Registered analytic</option>
+              <option value="sql">Ad-hoc SQL</option>
+            </select>
+            <button type="button" class="tip-trigger" aria-describedby="tip-kind" aria-label="About Source">?</button>
+            <span id="tip-kind" role="tooltip" class="tip-pop">Registered analytic runs a versioned SQL definition by id. Ad-hoc SQL is a single SELECT or WITH, sandboxed and gated by policy.</span>
+          </span>
         </div>
         <div id="analyticWrap">
           <label for="analytic">Analytic</label>
-          <select id="analytic"></select>
+          <span class="tip-wrap block">
+            <select id="analytic" aria-describedby="tip-analytic"></select>
+            <button type="button" class="tip-trigger" aria-describedby="tip-analytic" aria-label="About Analytic">?</button>
+            <span id="tip-analytic" role="tooltip" class="tip-pop">Versioned analytics from the node’s registry. The latest semver runs unless you pin a version from the CLI.</span>
+          </span>
         </div>
       </div>
       <div id="sqlWrap" class="hidden">
         <label for="sql">SQL</label>
-        <textarea id="sql" placeholder="SELECT product, SUM(amount) AS total FROM sales GROUP BY product"></textarea>
+        <span class="tip-wrap block">
+          <textarea id="sql" aria-describedby="tip-sql" placeholder="SELECT product, SUM(amount) AS total FROM sales GROUP BY product"></textarea>
+          <button type="button" class="tip-trigger" aria-describedby="tip-sql" aria-label="About SQL">?</button>
+          <span id="tip-sql" role="tooltip" class="tip-pop">Sandboxed SELECT or WITH only. File-read functions, DML, and multi-statement batches are rejected. Row and time caps come from node config and policy.</span>
+        </span>
       </div>
       <details id="assistWrap">
         <summary>NL → SQL assist (optional)</summary>
@@ -346,20 +511,45 @@
         <p id="proposeStatus" class="muted">Assist never auto-executes SQL.</p>
       </details>
       <div class="actions">
-        <button id="runBtn" type="button">Run</button>
-        <button id="proposeBtn" class="secondary" type="button">Propose SQL</button>
-        <button id="confirmSqlBtn" class="ghost" type="button" disabled>Confirm and run proposed SQL</button>
+        <span class="tip-wrap">
+          <button id="runBtn" type="button" aria-describedby="tip-run">Run</button>
+          <span id="tip-run" role="tooltip" class="tip-pop">Executes the selected analytic or SQL on the target node. You get a preview, a Parquet artifact, and a hash-chained receipt. Source tables stay on that node.</span>
+        </span>
+        <span class="tip-wrap">
+          <button id="proposeBtn" class="secondary" type="button" aria-describedby="tip-propose">Propose SQL</button>
+          <span id="tip-propose" role="tooltip" class="tip-pop">Asks the optional model to draft sandboxed SQL from your question. Nothing executes at this step — propose never auto-executes.</span>
+        </span>
+        <span class="tip-wrap">
+          <button id="confirmSqlBtn" class="ghost" type="button" disabled aria-describedby="tip-confirm">Confirm and run proposed SQL</button>
+          <button type="button" class="tip-trigger" aria-describedby="tip-confirm" aria-label="About Confirm and run proposed SQL">?</button>
+          <span id="tip-confirm" role="tooltip" class="tip-pop">Runs the reviewed proposal as ad-hoc SQL. This is the confirm step; Propose SQL never auto-executes.</span>
+        </span>
       </div>
       <p id="runStatus" class="muted"></p>
     </section>
 
     <section id="resultPanel" class="citizen">
-      <div class="section-head"><h2>Result</h2></div>
+      <div class="section-head">
+        <h2>Result</h2>
+        <span class="tip-wrap">
+          <button type="button" class="tip-trigger" aria-describedby="tip-chart" aria-label="About the chart">?</button>
+          <span id="tip-chart" role="tooltip" class="tip-pop">When a preview has a label column, a numeric column, and at most 24 plotted rows, a light SVG bar chart appears above the table. Other shapes stay table-only; nothing is sent to a chart service.</span>
+        </span>
+      </div>
       <p id="resultMeta" class="muted">Nothing run yet.</p>
-      <div id="chartPreview" class="hidden" aria-live="polite"></div>
+      <div id="chartPreview" class="hidden" aria-live="polite" aria-describedby="tip-chart"></div>
       <div class="scroll"><table id="resultTable"></table></div>
-      <p><a id="downloadLink" class="hidden" href="#">Download Parquet artifact</a></p>
-      <button id="assistBtn" class="secondary" type="button" disabled>Explain result (optional assist)</button>
+      <p>
+        <span class="tip-wrap">
+          <a id="downloadLink" class="hidden" href="#" aria-describedby="tip-download">Download Parquet artifact</a>
+          <span id="tip-download" role="tooltip" class="tip-pop">Downloads the Parquet result from the node (or through the plane job result proxy). Source tables are not included.</span>
+        </span>
+      </p>
+      <span class="tip-wrap">
+        <button id="assistBtn" class="secondary" type="button" disabled aria-describedby="tip-explain">Explain result (optional assist)</button>
+        <button type="button" class="tip-trigger" aria-describedby="tip-explain" aria-label="About Explain result">?</button>
+        <span id="tip-explain" role="tooltip" class="tip-pop">Optional auxiliary-model note on a capped preview. Core analytics never call a model; this stays off unless you click it and a model is configured.</span>
+      </span>
       <p id="assistStatus" class="muted">Explain uses the auxiliary model when configured. Core runs never call a model.</p>
     </section>
 
@@ -367,8 +557,15 @@
       <div class="section-head"><h2>Receipt</h2></div>
       <div id="receiptSummary" class="empty">No receipt yet. Run a query or analytic to see a summary here.</div>
       <div class="actions">
-        <button id="copyReceiptBtn" class="secondary" type="button" disabled>Copy receipt id</button>
-        <button id="verifyChainBtn" class="ghost" type="button">Verify chain</button>
+        <span class="tip-wrap">
+          <button id="copyReceiptBtn" class="secondary" type="button" disabled aria-describedby="tip-copy-receipt">Copy receipt id</button>
+          <button type="button" class="tip-trigger" aria-describedby="tip-copy-receipt" aria-label="About Copy receipt id">?</button>
+          <span id="tip-copy-receipt" role="tooltip" class="tip-pop">Copies the receipt id so you can fetch or verify it from the CLI with uv run mesh receipt.</span>
+        </span>
+        <span class="tip-wrap">
+          <button id="verifyChainBtn" class="ghost" type="button" aria-describedby="tip-verify-chain">Verify chain</button>
+          <span id="tip-verify-chain" role="tooltip" class="tip-pop">Asks the owning node to walk its SHA-256 receipt chain. The plane does not store the chain or the source tables.</span>
+        </span>
       </div>
       <p id="chainStatus" class="muted"></p>
       <details class="raw">
@@ -378,11 +575,106 @@
     </section>
   </div>
 
+  <div id="helpBackdrop" class="help-backdrop" hidden></div>
+  <aside id="helpDrawer" class="help-drawer" role="dialog" aria-modal="true" aria-labelledby="helpTitle" tabindex="-1" hidden>
+    <div class="help-head">
+      <h2 id="helpTitle">Help</h2>
+      <button id="helpClose" type="button" class="ghost small">Close</button>
+    </div>
+    <div class="help-search">
+      <label class="sr-only" for="helpSearch">Filter help</label>
+      <input id="helpSearch" type="search" placeholder="Filter help…">
+    </div>
+    <nav id="helpNav" class="help-nav" aria-label="Help sections">
+      <a href="#help=getting-started" data-help-nav="getting-started">Getting started</a>
+      <a href="#help=concepts" data-help-nav="concepts">Concepts</a>
+      <a href="#help=cli-vs-ui" data-help-nav="cli-vs-ui">CLI vs UI</a>
+      <a href="#help=receipts" data-help-nav="receipts">Receipts</a>
+      <a href="#help=plane-vs-node" data-help-nav="plane-vs-node">Plane vs node</a>
+      <a href="#help=policy" data-help-nav="policy">Policy</a>
+      <a href="#help=mcp" data-help-nav="mcp">MCP</a>
+    </nav>
+    <div id="helpBody" class="help-body">
+      <article id="help-getting-started" data-help-section="getting-started">
+        <h3>Getting started</h3>
+        <ol>
+          <li>Open <code>/ui</code> on a node (<code>uv run mesh serve</code>) or the plane (<code>uv run mesh plane</code>).</li>
+          <li>On the plane, pick a registered node. On a node UI you are already talking to that machine.</li>
+          <li>Choose a registered analytic (for example <code>top_products</code>) or switch Source to Ad-hoc SQL.</li>
+          <li>Click <strong>Run</strong>. The node executes; source data never leaves that node.</li>
+          <li>Read the preview table. A light bar chart appears when the preview has a label column plus a numeric column.</li>
+          <li>Download the Parquet artifact if you want the file locally.</li>
+          <li>Inspect the receipt (who, what, hash). Use <strong>Verify chain</strong> to check the node’s hash chain.</li>
+        </ol>
+        <p>Analytics work with <strong>zero</strong> LLM configured. Optional NL→SQL is propose-then-confirm and never auto-executes.</p>
+      </article>
+      <article id="help-concepts" data-help-section="concepts">
+        <h3>Concepts</h3>
+        <ul>
+          <li><strong>Node</strong> — machine that holds connectors, runs engines, and stores artifacts plus the receipt chain.</li>
+          <li><strong>Connectors / tables</strong> — plugins that expose local files or read-only Postgres as named tables. Sensitivity labels come from connector config.</li>
+          <li><strong>Engines</strong> — DuckDB is the default for ad-hoc SQL and most analytics; Polars is optional (example: <code>top_products_polars</code>).</li>
+          <li><strong>Analytics registry</strong> — versioned YAML + SQL under <code>analytics/</code>. Run by id; latest semver unless you pin a version.</li>
+          <li><strong>Artifacts</strong> — Parquet results on the node, capped by the node’s <code>artifacts:</code> store settings.</li>
+          <li><strong>Receipts</strong> — hash-chained audit records on the owning node.</li>
+          <li><strong>Principal</strong> — identity sent with each run or assist. Policy allowlists decide what that principal may do.</li>
+        </ul>
+      </article>
+      <article id="help-cli-vs-ui" data-help-section="cli-vs-ui">
+        <h3>CLI vs UI</h3>
+        <p>The UI is a thin static page over the same HTTP APIs as the CLI. Nothing here is a second execution path.</p>
+        <pre>uv run mesh serve --config configs/examples/node.yaml
+uv run mesh analytics list
+uv run mesh analytics run top_products
+uv run mesh query --sql "SELECT product, SUM(amount) AS total FROM sales GROUP BY product"
+uv run mesh receipt &lt;receipt_id&gt; --verify-chain
+uv run mesh plane --config configs/examples/plane.yaml
+uv run mesh query --url http://127.0.0.1:8090 --node node-b --sql "SELECT 1"</pre>
+        <p>Use the CLI when you want files on disk, pairing, MCP, or scripting. Use this page for interactive preview, chart, and receipt inspection.</p>
+      </article>
+      <article id="help-receipts" data-help-section="receipts">
+        <h3>Receipts</h3>
+        <p>Each receipt hashes its payload plus <code>prev_hash</code> (SHA-256). The first receipt links to a genesis hash of 64 zeros. <strong>Verify chain</strong> walks the owning node’s SQLite log.</p>
+        <p><strong>Recorded:</strong> principal, node, action, params (analytic id/version or SQL hash), connector versions, engine, artifact hash, status, and model fields only when assist was used.</p>
+        <p><strong>Not recorded on the plane:</strong> source tables. The plane stores job metadata and pointers (artifact/receipt ids and URLs). The node remains the source of truth for verification.</p>
+      </article>
+      <article id="help-plane-vs-node" data-help-section="plane-vs-node">
+        <h3>Plane vs node</h3>
+        <ul>
+          <li><strong>Node UI</strong> (<code>mesh serve</code>, typically <code>http://127.0.0.1:8080/ui</code>) talks only to that node. There is no jobs list.</li>
+          <li><strong>Plane UI</strong> (<code>mesh plane</code>, typically <code>http://127.0.0.1:8090/ui</code>) needs a node picker. The plane forwards the run and records a job.</li>
+          <li><strong>Jobs</strong> are metadata + pointers. <code>#job=&lt;id&gt;</code> loads that job’s preview and receipt; the artifact is streamed from the owning node, not stored on the plane.</li>
+        </ul>
+        <p>Deep links: <code>#help</code> or <code>#help=receipts</code> open this drawer; <code>#job=</code> opens a plane job result.</p>
+      </article>
+      <article id="help-policy" data-help-section="policy">
+        <h3>Policy</h3>
+        <p>YAML allowlists (example: <code>configs/examples/policy.yaml</code>) name principals and what they may use: connectors, analytics, nodes, row/time caps, and <code>local_only</code> vs <code>allow_frontier</code>. If <code>policy_path</code> is omitted, the node allows every principal (earlier milestone behavior).</p>
+        <p>Denied <code>run_*</code> / assist calls return HTTP 403 and append a failed receipt. Sensitivity labels on connectors are informational metadata shown in this UI; they do not replace the allowlist.</p>
+        <p>NL→SQL assist is propose-then-confirm. <strong>Propose SQL</strong> never auto-executes. <strong>Confirm and run proposed SQL</strong> is a separate, explicit step. Assist is optional; analytics still work with zero LLM.</p>
+      </article>
+      <article id="help-mcp" data-help-section="mcp">
+        <h3>MCP</h3>
+        <p>The MCP adapter is a client of the node or plane, not a second engine. Shipped tools are analytics-only:</p>
+        <ul>
+          <li><code>list_analytics</code></li>
+          <li><code>run_analytic</code></li>
+          <li><code>get_receipt</code></li>
+        </ul>
+        <p>Optional extras: <code>list_connectors</code>, <code>list_nodes</code>. There is no <code>run_query</code>, raw SQL, shell, or connector-credential tool. Tools call the same policy-gated HTTP APIs as this UI. Start with <code>uv run mesh mcp --url http://127.0.0.1:8080 --principal local</code>.</p>
+      </article>
+    </div>
+  </aside>
+
   <script>
     const MAX_BARS = 24;
     const THEME_KEY = "mesh-theme";
     const PRINCIPAL_KEY = "mesh-principal";
     const state = { kind: "unknown", nodeId: null, last: null, proposed: null, receipt: null };
+    const HELP_SECTIONS = ["getting-started", "concepts", "cli-vs-ui", "receipts", "plane-vs-node", "policy", "mcp"];
+    let helpOpen = false;
+    let helpLastFocus = null;
+    let savedJobHash = null;
 
     const $ = (id) => document.getElementById(id);
 
@@ -719,7 +1011,7 @@
 
     function jobLink(job) {
       if (job.status === "succeeded" && job.job_id) {
-        return '<a href="#job=' + encodeURIComponent(job.job_id) + '">Open result</a>';
+        return '<a href="#job=' + encodeURIComponent(job.job_id) + '" aria-describedby="tip-jobs">Open result</a>';
       }
       return "<span class=\"muted\">—</span>";
     }
@@ -1014,10 +1306,155 @@
     $("themeToggle").addEventListener("click", function () {
       applyTheme(nextTheme(storedTheme()));
     });
-    window.addEventListener("hashchange", function () {
+    function safeDecode(value) {
+      try { return decodeURIComponent(value); } catch { return value; }
+    }
+
+    function helpSectionFromHash() {
+      const raw = location.hash.replace(/^#/, "");
+      if (raw === "help") return "getting-started";
+      if (raw.indexOf("help=") === 0) {
+        const id = safeDecode(raw.slice(5));
+        return HELP_SECTIONS.indexOf(id) >= 0 ? id : "getting-started";
+      }
+      return null;
+    }
+
+    function jobIdFromHash() {
       const match = location.hash.match(/^#job=(.+)$/);
-      if (match) openJob(decodeURIComponent(match[1]));
+      return match ? safeDecode(match[1]) : null;
+    }
+
+    function setPageInert(on) {
+      Array.prototype.forEach.call(document.body.children, function (el) {
+        if (el.id === "helpDrawer" || el.id === "helpBackdrop") return;
+        if (on) el.setAttribute("inert", "");
+        else el.removeAttribute("inert");
+      });
+    }
+
+    function showHelpSection(sectionId) {
+      const known = HELP_SECTIONS.indexOf(sectionId) >= 0 ? sectionId : "getting-started";
+      document.querySelectorAll("[data-help-nav]").forEach(function (el) {
+        const active = el.getAttribute("data-help-nav") === known;
+        el.classList.toggle("active", active);
+        if (active) el.setAttribute("aria-current", "true");
+        else el.removeAttribute("aria-current");
+      });
+      const article = $("help-" + known);
+      const body = $("helpBody");
+      if (article && body && !article.classList.contains("hidden")) {
+        body.scrollTop = Math.max(0, article.offsetTop - body.offsetTop);
+      }
+      return known;
+    }
+
+    function filterHelp() {
+      const q = $("helpSearch").value.trim().toLowerCase();
+      document.querySelectorAll("[data-help-section]").forEach(function (article) {
+        const match = !q || article.textContent.toLowerCase().indexOf(q) !== -1;
+        article.classList.toggle("hidden", !match);
+        const nav = document.querySelector('[data-help-nav="' + article.getAttribute("data-help-section") + '"]');
+        if (nav) nav.classList.toggle("hidden", !match);
+      });
+    }
+
+    function helpFocusables() {
+      return Array.prototype.slice.call($("helpDrawer").querySelectorAll(
+        'a[href], button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      )).filter(function (el) {
+        return !el.hidden && !el.classList.contains("hidden") && el.getClientRects().length;
+      });
+    }
+
+    function openHelp(sectionId, options) {
+      options = options || {};
+      const alreadyOpen = helpOpen;
+      if (!alreadyOpen) {
+        const active = document.activeElement;
+        helpLastFocus = (active && active.id === "helpBtn") ? active : $("helpBtn");
+        const jobId = jobIdFromHash();
+        savedJobHash = jobId ? "job=" + encodeURIComponent(jobId) : null;
+      }
+      $("helpDrawer").hidden = false;
+      $("helpBackdrop").hidden = false;
+      document.body.classList.add("help-open");
+      $("helpBtn").setAttribute("aria-expanded", "true");
+      helpOpen = true;
+      setPageInert(true);
+      const known = showHelpSection(sectionId || "getting-started");
+      if (!options.skipHash) {
+        const next = known === "getting-started" ? "help" : "help=" + known;
+        if (location.hash.replace(/^#/, "") !== next) {
+          history.pushState(null, "", "#" + next);
+        }
+      }
+      if (!alreadyOpen && !options.skipFocus) $("helpClose").focus();
+    }
+
+    function closeHelp(options) {
+      options = options || {};
+      if (!helpOpen && $("helpDrawer").hidden) return;
+      helpOpen = false;
+      $("helpDrawer").hidden = true;
+      $("helpBackdrop").hidden = true;
+      document.body.classList.remove("help-open");
+      $("helpBtn").setAttribute("aria-expanded", "false");
+      setPageInert(false);
+      if (!options.skipHash && helpSectionFromHash()) {
+        const next = savedJobHash ? "#" + savedJobHash : location.pathname + location.search;
+        history.pushState(null, "", next);
+      }
+      if (!options.skipFocus) $("helpBtn").focus();
+    }
+
+    function applyLocationHash(options) {
+      options = options || {};
+      const help = helpSectionFromHash();
+      if (help) {
+        openHelp(help, { skipHash: true, skipFocus: options.skipFocus });
+        return;
+      }
+      if (helpOpen) closeHelp({ skipHash: true, skipFocus: true });
+      const jobId = jobIdFromHash();
+      if (jobId && state.kind === "plane") openJob(jobId);
+    }
+
+    $("helpBtn").addEventListener("click", function () {
+      if (helpOpen) closeHelp();
+      else openHelp("getting-started");
     });
+    $("helpClose").addEventListener("click", function () { closeHelp(); });
+    $("helpBackdrop").addEventListener("click", function () { closeHelp(); });
+    $("helpSearch").addEventListener("input", filterHelp);
+    document.addEventListener("keydown", function (event) {
+      if (event.key === "Escape") {
+        if (helpOpen) {
+          event.preventDefault();
+          closeHelp();
+          return;
+        }
+        const active = document.activeElement;
+        if (active && active.closest && active.closest(".tip-wrap")) {
+          event.preventDefault();
+          active.blur();
+        }
+        return;
+      }
+      if (!helpOpen || event.key !== "Tab") return;
+      const nodes = helpFocusables();
+      if (!nodes.length) return;
+      const first = nodes[0];
+      const last = nodes[nodes.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    });
+    window.addEventListener("hashchange", function () { applyLocationHash(); });
 
     (async function init() {
       applyTheme(storedTheme());
@@ -1041,13 +1478,12 @@
         await loadAnalytics();
         await loadModels();
         await loadConnectors();
-        const match = location.hash.match(/^#job=(.+)$/);
-        if (match && state.kind === "plane") await openJob(decodeURIComponent(match[1]));
       } catch (err) {
         $("modeLabel").textContent = "Could not reach API: " + err.message;
         showBanner("The API did not respond. Check that this page is served by mesh node or plane.", "err");
         setStatus($("connectorsStatus"), "Connectors unavailable.", "status err");
       }
+      applyLocationHash({ skipFocus: !helpSectionFromHash() });
     })();
   </script>
 </body>
