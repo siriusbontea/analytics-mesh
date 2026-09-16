@@ -2,7 +2,7 @@
 
 Query-first local analytics. Point a node at a directory of CSV, Parquet, or JSON files, run sandboxed DuckDB SQL, and get a Parquet artifact plus a hash-chained receipt. No LLM is required.
 
-M1 is a **single node** on one machine. M2 adds a thin **control plane** that registers nodes and routes `run_query` to a target node. The plane stores job metadata and pointers only — not source tables. M3 adds a **versioned analytic registry**, a **minimal web UI**, and optional **OpenAI-compatible model config**. M4 adds **YAML policy allowlists**, **artifact retention/size caps**, a **read-only Postgres connector**, and optional **NL→SQL assist** that never auto-executes. M5 completes v1: an **analytics-only MCP adapter**, an optional **Polars engine**, and a **main → fallback** assist chain recorded on receipts. M6 polishes that same **single-file `/ui`**: dark/light theme, connectors and plane jobs, receipt verify/copy, an editable principal, and a light SVG bar chart on suitable previews. M7 adds an in-page **Help drawer** and accessible **tooltips** so you can learn the tool without leaving `/ui`. M8 fixes **`mesh receipt --verify-chain` against a direct node**, adds **GitHub Actions CI**, and ships **`scripts/deep-smoke.sh`**. M9 adds **Playwright browser tests** for `/ui` (Help drawer + a successful `top_products` run) in a separate CI job. Analytics still work with **zero** LLM configured.
+M1 is a **single node** on one machine. M2 adds a thin **control plane** that registers nodes and routes `run_query` to a target node. The plane stores job metadata and pointers only — not source tables. M3 adds a **versioned analytic registry**, a **minimal web UI**, and optional **OpenAI-compatible model config**. M4 adds **YAML policy allowlists**, **artifact retention/size caps**, a **read-only Postgres connector**, and optional **NL→SQL assist** that never auto-executes. M5 completes v1: an **analytics-only MCP adapter**, an optional **Polars engine**, and a **main → fallback** assist chain recorded on receipts. M6 polishes that same **single-file `/ui`**: dark/light theme, connectors and plane jobs, receipt verify/copy, an editable principal, and a light SVG bar chart on suitable previews. M7 adds an in-page **Help drawer** and accessible **tooltips** so you can learn the tool without leaving `/ui`. M8 fixes **`mesh receipt --verify-chain` against a direct node**, adds **GitHub Actions CI**, and ships **`scripts/deep-smoke.sh`**. M9 adds **Playwright browser tests** for `/ui` (Help drawer + a successful `top_products` run) in a separate CI job. M10 makes optional **Propose SQL** usable against a local OpenAI-compatible endpoint (Ollama / LM Studio) via `configs/examples/node-with-models.yaml`. Analytics still work with **zero** LLM configured.
 
 ## Requirements
 
@@ -141,11 +141,12 @@ plugins/connectors/postgres/
 plugins/engines/duckdb_engine/
 plugins/engines/polars_engine/   optional; DuckDB stays default
 analytics/                versioned YAML + SQL analytics (scanned from node `analytics_dir`)
-configs/examples/         node.yaml, policy.yaml, models.yaml, node-postgres.yaml, plane.yaml
+configs/examples/         node.yaml (LLM-free), node-with-models.yaml, models.yaml, policy.yaml, plane.yaml
 deploy/systemd/           mesh-node / mesh-plane / mesh-mcp unit files
 docker-compose.yml        optional Postgres for the read-only connector
 scripts/two-node-demo.sh  localhost two-node walkthrough
 scripts/deep-smoke.sh     post-serve / hermetic checks (health, analytic, receipt chain, policy, assist, Help UI)
+scripts/check-models.sh   probe GET {base_url}/models (Ollama / LM Studio)
 .github/workflows/ci.yml  pytest + Playwright UI on PR and main; optional deep-smoke
 tests/                    unit/API; tests/ui/ is Playwright (`pytest -m ui`)
 ```
@@ -232,9 +233,39 @@ Pick an analytic or paste SQL, view the result table, download the artifact, and
 
 ### Models (optional)
 
-`configs/examples/models.yaml` is the Hermes-inspired slot shape: `main`, `auxiliary`, `fallback`, plus `policy.default_mode: local_only`. One OpenAI-compatible client talks to local (Ollama / LM Studio / vLLM) and frontier (`base_url` + `model`). Point a node at it with `models_path: configs/examples/models.yaml`, or copy the slots under `models:`.
+`configs/examples/models.yaml` is the Hermes-inspired slot shape: `main`, `auxiliary`, `fallback`, plus `policy.default_mode: local_only`. One OpenAI-compatible client talks to local (Ollama / LM Studio / vLLM) and frontier (`base_url` + `model`). Default `configs/examples/node.yaml` leaves `models_path` unset. To turn on assist, use `configs/examples/node-with-models.yaml` (or copy the slots under `models:`).
 
 Analytics never require this file. `GET /models?probe=true` optionally calls `{base_url}/models`. Do not put API keys in YAML; use `api_key_env`.
+
+### Optional local LLM for Propose SQL
+
+Analytics stay useful with no model. To make **Propose SQL** talk to a laptop endpoint:
+
+1. Install [Ollama](https://ollama.com) and start it (`ollama serve`), or start LM Studio's OpenAI-compatible local server.
+2. Pull a model you actually have. Example ids in `models.yaml` are **placeholders** — they are not pinned weights:
+
+   ```bash
+   ollama pull <tag>              # any local tag you have
+   ./scripts/check-models.sh      # GET http://127.0.0.1:11434/v1/models
+   ```
+
+   Set `model:` (main and auxiliary) to a tag that script lists. The ids in `models.yaml` (`qwen2.5-coder:14b`, `qwen2.5:7b`) are **placeholders** — do not serve until they match a pulled tag. Keep `policy.default_mode: local_only` so the optional OpenRouter fallback does not fire unless you explicitly allow frontier.
+3. Serve the LLM-enabled example (default `node.yaml` stays LLM-free):
+
+   ```bash
+   uv run mesh serve --config configs/examples/node-with-models.yaml
+   ```
+
+4. Propose, then confirm — never auto-executes:
+
+   ```bash
+   uv run mesh assist --question "Which product sold the most?"
+   uv run mesh assist --question "Which product sold the most?" --confirm-run
+   ```
+
+   Or open [http://127.0.0.1:8080/ui](http://127.0.0.1:8080/ui) and use **Propose SQL**, review the draft, then **Confirm and run proposed SQL**.
+
+If Ollama is down, assist says the local endpoint is unreachable. If the tag is not pulled, it says the model was not found and to `ollama pull` or change `model:`. Paid OpenRouter keys are not required for this path.
 
 ## M4 — policy, artifacts, Postgres, NL→SQL
 
@@ -319,6 +350,7 @@ M1–M5 together are v1: query where the data lives, return an artifact plus a v
 | M7 | In-UI Help drawer and accessible tooltips |
 | M8 | Direct-node `--verify-chain`, GitHub Actions CI, `scripts/deep-smoke.sh` |
 | M9 | Playwright browser tests for `/ui` (Help + Run analytic) |
+| M10 | Local OpenAI-compatible Propose SQL (`node-with-models.yaml`, Ollama / LM Studio) |
 
 ### MCP adapter (analytics toolset only)
 
@@ -432,6 +464,10 @@ Playwright (Python `pytest-playwright`) opens `/ui` on a hermetic temp node:
 2. Select `top_products`, click **Run**, wait for the preview table (gadget / widget / sprocket) and a receipt id (or enabled **Copy receipt id**).
 
 Install Chromium once, then `uv run pytest -m ui`. GitHub Actions runs that as the required `pytest-ui` job (browsers installed with `--with-deps`). Default `uv run pytest` does not collect these tests.
+
+## M10 — local LLM for Propose SQL
+
+Default `configs/examples/node.yaml` is still LLM-free. `configs/examples/node-with-models.yaml` sets `models_path` to `configs/examples/models.yaml` so **Propose SQL** can call a local OpenAI-compatible endpoint (Ollama at `http://127.0.0.1:11434/v1` or LM Studio). Example `model:` ids are placeholders: `ollama pull` a tag you have, probe `GET {base_url}/models` (or `scripts/check-models.sh`), then set `model:` to that tag. `policy.default_mode: local_only` keeps the optional frontier fallback off unless you allow it. Assist still never auto-executes.
 
 ## Docs
 

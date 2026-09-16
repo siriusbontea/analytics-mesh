@@ -1,8 +1,14 @@
 from __future__ import annotations
 
+import threading
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
+import uvicorn
+from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
+from pydantic import BaseModel
 
 from mesh_common.llm import LlmClient, LlmProviderConfig, LlmSlotConfig
 from mesh_node.app import create_app
@@ -10,6 +16,52 @@ from mesh_node.config import ConnectorConfig, LimitsConfig, NodeConfig
 from mesh_node.runtime import NodeRuntime
 
 REPO = Path(__file__).resolve().parents[1]
+
+
+class _ChatRequest(BaseModel):
+    model: str
+    messages: list[dict[str, str]] = []
+
+
+@contextmanager
+def _openai_compat_server(
+    *,
+    sql: str = "SELECT product, SUM(amount) AS total FROM sales GROUP BY product",
+    available_models: list[str] | None = None,
+    missing_status: int | None = None,
+) -> Iterator[str]:
+    """Serve a tiny OpenAI-compatible /v1 on an ephemeral port."""
+    listed = available_models or ["stub-sql"]
+    fake = FastAPI()
+
+    @fake.get("/v1/models")
+    def models() -> dict[str, object]:
+        return {"data": [{"id": item} for item in listed]}
+
+    @fake.post("/v1/chat/completions")
+    def chat(payload: _ChatRequest) -> dict[str, object]:
+        if missing_status is not None and payload.model not in listed:
+            raise HTTPException(status_code=missing_status, detail={"error": {"message": "model not found"}})
+        return {
+            "id": "chatcmpl-stub",
+            "object": "chat.completion",
+            "choices": [{"index": 0, "message": {"role": "assistant", "content": sql}, "finish_reason": "stop"}],
+        }
+
+    server = uvicorn.Server(uvicorn.Config(fake, host="127.0.0.1", port=0, log_level="error"))
+    thread = threading.Thread(target=server.run, daemon=True)
+    thread.start()
+    try:
+        for _ in range(50):
+            if server.started:
+                break
+            thread.join(0.05)
+        assert server.started
+        port = server.servers[0].sockets[0].getsockname()[1]
+        yield f"http://127.0.0.1:{port}/v1"
+    finally:
+        server.should_exit = True
+        thread.join(timeout=5)
 
 
 def _cfg(tmp_path: Path, data_dir: Path, models: LlmProviderConfig | None = None) -> NodeConfig:
@@ -152,3 +204,56 @@ def test_runtime_nl2sql_does_not_call_engine(tmp_path: Path, data_dir: Path, mon
     result = runtime.propose_sql("count rows", "local")
     assert result["sql"]
     assert called["n"] == 0
+
+
+def test_nl2sql_with_openai_compat_stub_proposes_and_never_executes(tmp_path: Path, data_dir: Path):
+    with _openai_compat_server(sql="SELECT product FROM sales") as base_url:
+        models = LlmProviderConfig(main=LlmSlotConfig(provider="local", base_url=base_url, model="stub-sql"))
+        client = TestClient(create_app(_cfg(tmp_path, data_dir, models)))
+        before = list((tmp_path / "artifacts").glob("*.parquet")) if (tmp_path / "artifacts").exists() else []
+        response = client.post("/assist/nl2sql", json={"question": "list products", "principal": "local"})
+        assert response.status_code == 200
+        body = response.json()
+        assert body["used"] is True
+        assert body["confirmed"] is False
+        assert "FROM sales" in body["sql"]
+        assert body["model_provider"] == "local"
+        assert body["model_id"] == "stub-sql"
+        assert body["model_slot"] == "main"
+        assert body["model_fallback_used"] is False
+        assert body["receipt"]["action"] == "assist_nl2sql"
+        assert body["receipt"]["model_provider"] == "local"
+        assert body["receipt"]["model_id"] == "stub-sql"
+        after = list((tmp_path / "artifacts").glob("*.parquet")) if (tmp_path / "artifacts").exists() else []
+        assert after == before
+
+
+def test_nl2sql_unreachable_local_endpoint_is_clear(tmp_path: Path, data_dir: Path):
+    models = LlmProviderConfig(
+        main=LlmSlotConfig(provider="local", base_url="http://127.0.0.1:9/v1", model="any-local")
+    )
+    client = TestClient(create_app(_cfg(tmp_path, data_dir, models)))
+    body = client.post("/assist/nl2sql", json={"question": "totals", "principal": "local"}).json()
+    assert body["used"] is False
+    assert body["sql"] is None
+    message = body["message"].lower()
+    assert "unreachable" in message
+    assert "ollama" in message or "lm studio" in message
+    assert "/models" in body["message"]
+    assert body["receipt"]["status"] == "failed"
+    assert body["receipt"]["model_attempts"][0]["status"] == "failed"
+
+
+def test_nl2sql_missing_model_is_clear(tmp_path: Path, data_dir: Path):
+    with _openai_compat_server(available_models=["other-tag"], missing_status=404) as base_url:
+        models = LlmProviderConfig(
+            main=LlmSlotConfig(provider="local", base_url=base_url, model="missing-tag")
+        )
+        client = TestClient(create_app(_cfg(tmp_path, data_dir, models)))
+        body = client.post("/assist/nl2sql", json={"question": "totals", "principal": "local"}).json()
+        assert body["used"] is False
+        assert body["sql"] is None
+        message = body["message"].lower()
+        assert "not found" in message
+        assert "missing-tag" in message
+        assert "pull" in message or "model:" in message

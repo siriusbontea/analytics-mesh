@@ -69,6 +69,54 @@ def assist_attribution(slot: LlmSlotConfig | None) -> dict[str, str | None]:
     return {"model_provider": slot.provider, "model_id": slot.model}
 
 
+def describe_llm_error(exc: BaseException, slot: LlmSlotConfig) -> str:
+    """Human-readable assist error: endpoint down vs model missing vs other."""
+    base = slot.base_url.rstrip("/")
+    model = slot.model
+    if isinstance(exc, (httpx.ConnectError, httpx.ConnectTimeout)):
+        if slot.provider == "local":
+            return (
+                f"Local model endpoint is unreachable at {base}. "
+                "Start Ollama (`ollama serve`) or LM Studio, then probe "
+                f"GET {base}/models (or run scripts/check-models.sh)."
+            )
+        return f"Could not connect to {slot.provider} model endpoint {base} for model {model}."
+    if isinstance(exc, httpx.TimeoutException):
+        return (
+            f"Timed out talking to {base} for model {model}. "
+            "The endpoint may still be loading weights or the generation ran long."
+        )
+    if isinstance(exc, httpx.HTTPStatusError):
+        status = exc.response.status_code
+        try:
+            body = exc.response.text
+        except Exception:
+            body = ""
+        if _looks_like_missing_model(body, model):
+            return (
+                f"Model {model!r} was not found at {base}. "
+                f"Pull a local tag (for example `ollama pull {model}`) "
+                f"or set model: to an id from GET {base}/models."
+            )
+        snippet = " ".join(body.split())
+        if len(snippet) > 240:
+            snippet = snippet[:237] + "..."
+        extra = f" Check that base_url ends with /v1 and GET {base}/models succeeds." if status == 404 else ""
+        return f"Model endpoint {base} returned HTTP {status} for {model}: {snippet or exc}.{extra}".rstrip(".")
+    text = str(exc).strip()
+    return text or "model call failed"
+
+
+def _looks_like_missing_model(body: str, model: str) -> bool:
+    lowered = body.lower()
+    model_l = model.lower()
+    if "model not found" in lowered or "model does not exist" in lowered:
+        return True
+    if model_l and model_l in lowered and ("not found" in lowered or "does not exist" in lowered):
+        return True
+    return False
+
+
 class LlmNotConfigured(RuntimeError):
     """Assist requested but no provider slot is configured."""
 

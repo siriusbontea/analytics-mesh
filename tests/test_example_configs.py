@@ -43,3 +43,24 @@ def test_example_plane_config_loads():
     assert plane.plane_id == "home-plane"
     assert plane.registration_token
     assert plane.listen_port == 8090
+
+
+def test_default_example_node_is_llm_free():
+    node = load_config(REPO / "configs/examples/node.yaml")
+    assert node.models_path is None
+    assert node.models.main is None
+    assert node.models.is_configured() is False
+    text = (REPO / "configs/examples/node.yaml").read_text()
+    assert "models_path:" in text
+    assert text.split("models_path:")[0].rstrip().endswith("#") or "# models_path:" in text
+
+
+def test_node_with_models_points_at_example_models():
+    node = load_config(REPO / "configs/examples/node-with-models.yaml")
+    assert node.models_path is not None
+    assert node.models_path.name == "models.yaml"
+    assert node.models.is_configured() is True
+    assert node.models.main is not None
+    assert node.models.main.provider == "local"
+    assert node.models.main.base_url.endswith("/v1")
+    assert node.models.policy.default_mode == "local_only"

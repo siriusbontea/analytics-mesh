@@ -1,7 +1,19 @@
 # Optional OpenAI-compatible providers (Ollama / LM Studio / vLLM / OpenRouter).
-# Analytics work with zero LLM configured. Point node.yaml at this file with
-# `models_path:` or copy the `main` / `auxiliary` / `fallback` slots under `models:`.
-# Do not put API keys here; use api_key_env. Probe with GET {base_url}/models.
+# Analytics work with zero LLM configured. Default node.yaml leaves this unset.
+#
+# Enable Propose SQL locally:
+#   1. Install Ollama (https://ollama.com) and run `ollama serve`, or start
+#      LM Studio's local OpenAI-compatible server.
+#   2. Pull a model you actually have, for example: `ollama pull qwen2.5-coder:7b`
+#      The `model:` ids below are placeholders — set them to a tag from
+#      GET {base_url}/models (or `./scripts/check-models.sh`).
+#   3. Serve with configs/examples/node-with-models.yaml (`models_path:` here),
+#      or copy these slots under `models:` in a node config.
+#
+# Keep policy.default_mode: local_only so the frontier fallback does not fire
+# unless you explicitly set a principal to allow_frontier.
+# Do not put API keys here; use api_key_env.
+# Probe: GET http://127.0.0.1:11434/v1/models
 main:
   provider: local
   base_url: http://127.0.0.1:11434/v1

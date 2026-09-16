@@ -20,5 +20,7 @@ artifacts:
   max_total_bytes: 1073741824     # 1 GiB total
   retention_days: 7
   max_files: 200
-# models: leave unset so analytics runs with zero LLM configured
+# models: leave unset so analytics runs with zero LLM configured.
+# For optional Propose SQL, use configs/examples/node-with-models.yaml
+# (points models_path at configs/examples/models.yaml).
 # models_path: configs/examples/models.yaml
