@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import subprocess
 from pathlib import Path
 
@@ -210,6 +211,53 @@ def test_check_models_script_probes_openai_compat_endpoint():
         assert down.returncode != 0
         combined = (down.stdout + down.stderr).lower()
         assert "cannot reach" in combined or "unreachable" in combined
+    finally:
+        server.should_exit = True
+        thread.join(timeout=5)
+
+
+def test_check_models_script_sends_xai_bearer_when_set():
+    import threading
+
+    import uvicorn
+    from fastapi import Header, HTTPException
+
+    fake = FastAPI()
+
+    @fake.get("/v1/models")
+    def models(authorization: str | None = Header(default=None)) -> dict[str, object]:
+        if authorization != "Bearer test-xai-key":
+            raise HTTPException(status_code=401, detail="missing bearer")
+        return {"data": [{"id": "grok-4"}]}
+
+    server = uvicorn.Server(uvicorn.Config(fake, host="127.0.0.1", port=0, log_level="error"))
+    thread = threading.Thread(target=server.run, daemon=True)
+    thread.start()
+    try:
+        for _ in range(50):
+            if server.started:
+                break
+            thread.join(0.05)
+        assert server.started
+        port = server.servers[0].sockets[0].getsockname()[1]
+        script = Path("scripts/check-models.sh")
+        denied = subprocess.run(
+            ["bash", str(script), f"http://127.0.0.1:{port}/v1"],
+            capture_output=True,
+            text=True,
+            check=False,
+            env={**os.environ, "XAI_API_KEY": ""},
+        )
+        assert denied.returncode != 0
+        ok = subprocess.run(
+            ["bash", str(script), f"http://127.0.0.1:{port}/v1"],
+            capture_output=True,
+            text=True,
+            check=False,
+            env={**os.environ, "XAI_API_KEY": "test-xai-key"},
+        )
+        assert ok.returncode == 0
+        assert "grok-4" in ok.stdout
     finally:
         server.should_exit = True
         thread.join(timeout=5)

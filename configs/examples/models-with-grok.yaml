@@ -1,0 +1,35 @@
+# Optional xAI Grok as the frontier main/auxiliary provider (OpenAI-compatible).
+# Analytics still work with zero LLM. Default node.yaml stays LLM-free.
+#
+# This path is opt-in. A consumer Grok or X Premium chat subscription is NOT
+# API access. Mesh needs an xAI API key:
+#   1. Create a key at the xAI console (https://console.x.ai/).
+#   2. export XAI_API_KEY=...   (never put the key in YAML)
+#   3. uv run mesh serve --config configs/examples/node-with-grok.yaml
+#
+# Chat Completions stays on POST {base_url}/chat/completions. Probe ids with:
+#   XAI_API_KEY=... ./scripts/check-models.sh https://api.x.ai/v1
+#   # or: curl -sS -H "Authorization: Bearer $XAI_API_KEY" https://api.x.ai/v1/models
+#
+# grok-4 is a current chat-completions-capable id (alias to the latest stable
+# Grok 4 line). Named releases such as grok-4.6 / grok-4.5 also work — set
+# model: to an id from GET /v1/models for your key.
+#
+# policy.default_mode: allow_frontier is required so Propose SQL / explain can
+# use these frontier slots. Example policy.yaml still lists local/web as
+# local_only; this models file is the explicit Grok opt-in.
+# Do not put API keys here; use api_key_env: XAI_API_KEY.
+main:
+  provider: frontier
+  base_url: https://api.x.ai/v1
+  model: grok-4
+  api_key_env: XAI_API_KEY
+auxiliary:
+  provider: frontier
+  base_url: https://api.x.ai/v1
+  model: grok-4
+  api_key_env: XAI_API_KEY
+fallback: []
+policy:
+  default_mode: allow_frontier
+  allow_frontier_analytics: []

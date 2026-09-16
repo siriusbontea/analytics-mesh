@@ -34,6 +34,10 @@ class LlmProviderConfig(BaseModel):
     def is_configured(self) -> bool:
         return self.main is not None
 
+    def allows_frontier(self, principal_mode: str | None = None) -> bool:
+        """Frontier slots are eligible if the models file or the principal opts in."""
+        return self.policy.default_mode == "allow_frontier" or principal_mode == "allow_frontier"
+
 
 class ModelProbeResult(BaseModel):
     ok: bool
@@ -122,7 +126,7 @@ class LlmNotConfigured(RuntimeError):
 
 
 class OpenAICompatibleClient:
-    """One interface for Ollama, LM Studio, vLLM, OpenRouter, and other /v1 backends."""
+    """One interface for Ollama, LM Studio, vLLM, xAI Grok, OpenRouter, and other /v1 backends."""
 
     def __init__(self, slot: LlmSlotConfig, timeout: float = 5.0) -> None:
         self.slot = slot

@@ -2,7 +2,7 @@
 
 Query-first local analytics. Point a node at a directory of CSV, Parquet, or JSON files, run sandboxed DuckDB SQL, and get a Parquet artifact plus a hash-chained receipt. No LLM is required.
 
-M1 is a **single node** on one machine. M2 adds a thin **control plane** that registers nodes and routes `run_query` to a target node. The plane stores job metadata and pointers only — not source tables. M3 adds a **versioned analytic registry**, a **minimal web UI**, and optional **OpenAI-compatible model config**. M4 adds **YAML policy allowlists**, **artifact retention/size caps**, a **read-only Postgres connector**, and optional **NL→SQL assist** that never auto-executes. M5 completes v1: an **analytics-only MCP adapter**, an optional **Polars engine**, and a **main → fallback** assist chain recorded on receipts. M6 polishes that same **single-file `/ui`**: dark/light theme, connectors and plane jobs, receipt verify/copy, an editable principal, and a light SVG bar chart on suitable previews. M7 adds an in-page **Help drawer** and accessible **tooltips** so you can learn the tool without leaving `/ui`. M8 fixes **`mesh receipt --verify-chain` against a direct node**, adds **GitHub Actions CI**, and ships **`scripts/deep-smoke.sh`**. M9 adds **Playwright browser tests** for `/ui` (Help drawer + a successful `top_products` run) in a separate CI job. M10 makes optional **Propose SQL** usable against a local OpenAI-compatible endpoint (Ollama / LM Studio) via `configs/examples/node-with-models.yaml`. M11 hardens **pairing tokens**, **listen/Tailscale posture**, and **systemd units** for real machines without changing localhost demo defaults. Analytics still work with **zero** LLM configured.
+M1 is a **single node** on one machine. M2 adds a thin **control plane** that registers nodes and routes `run_query` to a target node. The plane stores job metadata and pointers only — not source tables. M3 adds a **versioned analytic registry**, a **minimal web UI**, and optional **OpenAI-compatible model config**. M4 adds **YAML policy allowlists**, **artifact retention/size caps**, a **read-only Postgres connector**, and optional **NL→SQL assist** that never auto-executes. M5 completes v1: an **analytics-only MCP adapter**, an optional **Polars engine**, and a **main → fallback** assist chain recorded on receipts. M6 polishes that same **single-file `/ui`**: dark/light theme, connectors and plane jobs, receipt verify/copy, an editable principal, and a light SVG bar chart on suitable previews. M7 adds an in-page **Help drawer** and accessible **tooltips** so you can learn the tool without leaving `/ui`. M8 fixes **`mesh receipt --verify-chain` against a direct node**, adds **GitHub Actions CI**, and ships **`scripts/deep-smoke.sh`**. M9 adds **Playwright browser tests** for `/ui` (Help drawer + a successful `top_products` run) in a separate CI job. M10 makes optional **Propose SQL** usable against a local OpenAI-compatible endpoint (Ollama / LM Studio) via `configs/examples/node-with-models.yaml`. M11 hardens **pairing tokens**, **listen/Tailscale posture**, and **systemd units** for real machines without changing localhost demo defaults. M12 adds optional **xAI Grok** as an OpenAI-compatible frontier provider (`node-with-grok.yaml` or local-then-Grok fallback). Analytics still work with **zero** LLM configured.
 
 ## Requirements
 
@@ -165,12 +165,12 @@ plugins/connectors/postgres/
 plugins/engines/duckdb_engine/
 plugins/engines/polars_engine/   optional; DuckDB stays default
 analytics/                versioned YAML + SQL analytics (scanned from node `analytics_dir`)
-configs/examples/         node.yaml (LLM-free), node-with-models.yaml, node-real-data.yaml.example, models.yaml, policy.yaml, plane.yaml
+configs/examples/         node.yaml (LLM-free), node-with-models.yaml, node-with-grok.yaml, node-with-local-then-grok.yaml, models*.yaml, policy.yaml, plane.yaml
 deploy/systemd/           mesh-node / mesh-plane / mesh-mcp units + mesh.env.example
 docker-compose.yml        optional Postgres for the read-only connector
 scripts/two-node-demo.sh  localhost two-node walkthrough
 scripts/deep-smoke.sh     post-serve / hermetic checks (health, analytic, receipt chain, policy, assist, Help UI)
-scripts/check-models.sh   probe GET {base_url}/models (Ollama / LM Studio)
+scripts/check-models.sh   probe GET {base_url}/models (Ollama / LM Studio / xAI with XAI_API_KEY)
 .github/workflows/ci.yml  pytest + Playwright UI on PR and main; optional deep-smoke
 tests/                    unit/API; tests/ui/ is Playwright (`pytest -m ui`)
 ```
@@ -257,7 +257,7 @@ Pick an analytic or paste SQL, view the result table, download the artifact, and
 
 ### Models (optional)
 
-`configs/examples/models.yaml` is the Hermes-inspired slot shape: `main`, `auxiliary`, `fallback`, plus `policy.default_mode: local_only`. One OpenAI-compatible client talks to local (Ollama / LM Studio / vLLM) and frontier (`base_url` + `model`). Default `configs/examples/node.yaml` leaves `models_path` unset. To turn on assist, use `configs/examples/node-with-models.yaml` (or copy the slots under `models:`).
+`configs/examples/models.yaml` is the Hermes-inspired slot shape: `main`, `auxiliary`, `fallback`, plus `policy.default_mode: local_only`. One OpenAI-compatible client talks to local (Ollama / LM Studio / vLLM) and frontier (`base_url` + `model`, including optional xAI Grok). Default `configs/examples/node.yaml` leaves `models_path` unset. To turn on assist, use `configs/examples/node-with-models.yaml` (local), `node-with-grok.yaml` (Grok), or `node-with-local-then-grok.yaml` (local then Grok fallback) — or copy the slots under `models:`.
 
 Analytics never require this file. `GET /models?probe=true` optionally calls `{base_url}/models`. Do not put API keys in YAML; use `api_key_env`.
 
@@ -290,6 +290,36 @@ Analytics stay useful with no model. To make **Propose SQL** talk to a laptop en
    Or open [http://127.0.0.1:8080/ui](http://127.0.0.1:8080/ui) and use **Propose SQL**, review the draft, then **Confirm and run proposed SQL**.
 
 If Ollama is down, assist says the local endpoint is unreachable. If the tag is not pulled, it says the model was not found and to `ollama pull` or change `model:`. Paid OpenRouter keys are not required for this path.
+
+### Optional Grok (xAI)
+
+Grok is an optional OpenAI-compatible frontier provider. Analytics still run with no key and no model. A **consumer Grok or X Premium chat subscription is not API access** — mesh needs `XAI_API_KEY`.
+
+1. Create an API key at the [xAI console](https://console.x.ai/).
+2. Export it (never commit the key; `.env.example` and `deploy/systemd/mesh.env.example` have an empty `XAI_API_KEY=` line):
+
+   ```bash
+   export XAI_API_KEY=...
+   ```
+
+3. Serve one of the opt-in examples:
+
+   ```bash
+   # Grok as main (and auxiliary) — policy.default_mode: allow_frontier
+   uv run mesh serve --config configs/examples/node-with-grok.yaml
+
+   # Local Ollama first; Grok only if local fails / is missing
+   uv run mesh serve --config configs/examples/node-with-local-then-grok.yaml
+   ```
+
+4. Optional probe (sends `Authorization: Bearer $XAI_API_KEY` when that env is set):
+
+   ```bash
+   ./scripts/check-models.sh https://api.x.ai/v1
+   # or: curl -sS -H "Authorization: Bearer $XAI_API_KEY" https://api.x.ai/v1/models
+   ```
+
+Example `model:` is `grok-4` (chat-completions-capable; alias to the current Grok 4 line). Named ids such as `grok-4.6` / `grok-4.5` also work — set `model:` to an id your key can list. The mesh client still uses `/v1/chat/completions`; do not put keys in YAML (`api_key_env: XAI_API_KEY`). `models.yaml` / `node-with-models.yaml` stay local-only (OpenRouter remains a commented alternate frontier example there). Propose SQL still never auto-executes.
 
 ## M4 — policy, artifacts, Postgres, NL→SQL
 
@@ -376,6 +406,7 @@ M1–M5 together are v1: query where the data lives, return an artifact plus a v
 | M9 | Playwright browser tests for `/ui` (Help + Run analytic) |
 | M10 | Local OpenAI-compatible Propose SQL (`node-with-models.yaml`, Ollama / LM Studio) |
 | M11 | Pair-token env override, listen/Tailscale docs, systemd + real data dirs |
+| M12 | Optional xAI Grok frontier (`node-with-grok` / local-then-Grok) |
 
 ### MCP adapter (analytics toolset only)
 
@@ -554,6 +585,17 @@ sudo systemctl enable --now mesh-plane mesh-node   # MCP only if you want HTTP t
 ```
 
 `EnvironmentFile=-/etc/analytics-mesh/mesh.env` is optional (`-` prefix) so a laptop copy of the unit still starts. Deep-smoke and the two-node demo keep using `demo-pair-token` on localhost.
+
+## M12 — optional xAI Grok
+
+Default `node.yaml` is still LLM-free. Two opt-in examples:
+
+| Config | Behavior |
+| --- | --- |
+| `node-with-grok.yaml` → `models-with-grok.yaml` | Frontier Grok as `main` / `auxiliary` at `https://api.x.ai/v1`, `api_key_env: XAI_API_KEY`, `policy.default_mode: allow_frontier` |
+| `node-with-local-then-grok.yaml` → `models-local-then-grok.yaml` | Same local Ollama placeholders as `models.yaml`; Grok in `fallback`; `allow_frontier` so fallback can fire when local fails |
+
+`models.policy.default_mode: allow_frontier` is the models-file opt-in that lets assist use frontier slots even when example `policy.yaml` principals are `local_only`. Keep `local_only` on `models.yaml` so the OpenRouter example fallback does not fire unless a principal (or a Grok example file) allows frontier. No key is stored in git; Grok is never required; `/assist/nl2sql` still never executes SQL.
 
 ## Docs
 

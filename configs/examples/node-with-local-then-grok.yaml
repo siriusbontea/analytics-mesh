@@ -1,0 +1,35 @@
+# Same as node.yaml, plus local Ollama first and optional Grok fallback.
+# Default configs/examples/node.yaml stays LLM-free.
+#
+# 1. Start Ollama (`ollama serve`) or LM Studio; set model: in
+#    models-local-then-grok.yaml to a tag you actually have.
+# 2. Optional Grok fallback: export XAI_API_KEY=... (xAI API key, not a
+#    Grok/X Premium chat subscription).
+# 3. uv run mesh serve --config configs/examples/node-with-local-then-grok.yaml
+#
+# models-local-then-grok.yaml sets policy.default_mode: allow_frontier so
+# the Grok fallback can run when local is unreachable or the tag is missing.
+# Assist still never auto-executes.
+node_id: local-dev
+artifact_dir: var/artifacts
+receipt_db: var/receipts.sqlite
+identity_key_path: var/local-dev.identity.pem
+listen_host: 127.0.0.1
+listen_port: 8080
+connectors:
+  - id: local_files
+    type: local_files
+    root: data/samples
+    labels: [personal]
+analytics_dir: analytics
+policy_path: configs/examples/policy.yaml
+limits:
+  default_row_limit: 10000
+  max_row_limit: 100000
+  query_timeout_seconds: 30
+artifacts:
+  max_bytes_per_file: 104857600   # 100 MiB per parquet
+  max_total_bytes: 1073741824     # 1 GiB total
+  retention_days: 7
+  max_files: 200
+models_path: configs/examples/models-local-then-grok.yaml

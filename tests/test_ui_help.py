@@ -89,6 +89,7 @@ def test_help_content_matches_product_behavior():
     assert "uv run mesh" in html
     assert "zero" in html and "llm" in html
     assert "ollama" in html or "node-with-models" in html
+    assert "xai_api_key" in html or "node-with-grok" in html
     assert "mesh_pair_token" in html or "demo-pair-token" in html
     assert "127.0.0.1" in html
     assert "policy" in html

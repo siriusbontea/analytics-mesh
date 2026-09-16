@@ -25,5 +25,5 @@ artifacts:
   max_files: 200
 # models: leave unset so analytics runs with zero LLM configured.
 # For optional Propose SQL, use configs/examples/node-with-models.yaml
-# (points models_path at configs/examples/models.yaml).
+# (local), node-with-grok.yaml (xAI Grok), or node-with-local-then-grok.yaml.
 # models_path: configs/examples/models.yaml

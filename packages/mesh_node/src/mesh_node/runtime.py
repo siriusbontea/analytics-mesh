@@ -200,7 +200,7 @@ class NodeRuntime:
         if not self.llm.is_configured():
             return empty.model_dump(mode="json")
 
-        allow_frontier = decision.model_mode == "allow_frontier"
+        allow_frontier = self.llm.config.allows_frontier(decision.model_mode)
         slots = self.llm.candidate_slots("main", allow_frontier=allow_frontier)
         if not slots:
             self._deny(
@@ -309,7 +309,7 @@ class NodeRuntime:
                 message="No model configured. Analytics still work; receipt model fields stay empty.",
             ).model_dump(mode="json")
 
-        allow_frontier = decision.model_mode == "allow_frontier"
+        allow_frontier = self.llm.config.allows_frontier(decision.model_mode)
         slots = self.llm.candidate_slots("auxiliary", allow_frontier=allow_frontier)
         if not slots:
             self._deny(
@@ -449,6 +449,20 @@ class NodeRuntime:
             analytic_id=analytic_id,
             model_provider=model_provider,
         )
+        if (
+            not decision.allowed
+            and model_provider == "frontier"
+            and self.llm.config.policy.default_mode == "allow_frontier"
+        ):
+            lifted = self.policy.authorize(
+                principal=principal,
+                action=action,
+                node_id=self.config.node_id,
+                connector_ids=connector_ids,
+                analytic_id=analytic_id,
+            )
+            if lifted.allowed:
+                decision = lifted.model_copy(update={"model_mode": "allow_frontier"})
         if not decision.allowed:
             self._deny(
                 principal=principal,
@@ -496,7 +510,10 @@ class NodeRuntime:
             node_id=self.config.node_id,
             model_provider=provider,
         )
-        if not decision.allowed or (provider == "frontier" and model_mode == "local_only"):
+        models_allow = self.llm.config.allows_frontier(model_mode)
+        if not decision.allowed and not (provider == "frontier" and models_allow):
+            return None, None
+        if provider == "frontier" and not models_allow:
             return None, None
         return provider, model_id
 

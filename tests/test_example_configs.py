@@ -81,7 +81,13 @@ def test_systemd_units_match_shipped_entrypoints():
         assert "127.0.0.1" in text
     env = (REPO / "deploy/systemd/mesh.env.example").read_text()
     assert "MESH_PAIR_TOKEN=" in env
+    assert "XAI_API_KEY=" in env
     assert "0.0.0.0" in env
+
+
+def test_env_examples_document_xai_api_key():
+    assert "XAI_API_KEY=" in (REPO / ".env.example").read_text()
+    assert "XAI_API_KEY=" in (REPO / "deploy/systemd/mesh.env.example").read_text()
 
 
 def test_default_example_node_is_llm_free():
