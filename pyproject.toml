@@ -55,6 +55,7 @@ dev = [
     "pytest>=8.3",
     "pytest-asyncio>=0.24",
     "httpx>=0.27",
+    "pytest-playwright>=0.5",
 ]
 
 [tool.pytest.ini_options]
@@ -62,4 +63,5 @@ testpaths = ["tests"]
 addopts = "-q"
 markers = [
     "integration: optional live Postgres (MESH_POSTGRES_DSN or testcontainers)",
+    "ui: browser UI tests (Playwright; run with pytest -m ui after playwright install chromium)",
 ]

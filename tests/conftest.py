@@ -14,6 +14,25 @@ SALES_CSV = """order_id,product,region,amount,sold_on
 """
 
 
+def _wants_ui_tests(config: pytest.Config) -> bool:
+    """Collect @pytest.mark.ui only when asked (`-m ui` or `tests/ui`)."""
+    tokens = (config.option.markexpr or "").replace("(", " ").replace(")", " ").split()
+    if "ui" not in tokens:
+        return False
+    for index, token in enumerate(tokens):
+        if token == "ui" and index > 0 and tokens[index - 1] == "not":
+            return False
+    return True
+
+
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    if _wants_ui_tests(config):
+        return
+    if items and all("ui" in item.keywords for item in items):
+        return
+    items[:] = [item for item in items if "ui" not in item.keywords]
+
+
 @pytest.fixture
 def sales_csv_text() -> str:
     return SALES_CSV
