@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 from mesh_common.artifacts import ArtifactStoreConfig
 from mesh_common.llm import LlmProviderConfig, load_llm_config
+from mesh_common.secrets import resolve_pair_token
 
 
 class ConnectorConfig(BaseModel):
@@ -28,8 +29,12 @@ class LimitsConfig(BaseModel):
 class PlaneClientConfig(BaseModel):
     url: str
     token: str
+    pair_token_env: str | None = None
     register_on_start: bool = True
     public_endpoint: str | None = None
+
+    def resolved_token(self) -> str:
+        return resolve_pair_token(self.token, pair_token_env=self.pair_token_env)
 
 
 class NodeConfig(BaseModel):

@@ -1,18 +1,22 @@
 [Unit]
 Description=Analytics Mesh MCP adapter (analytics toolset only)
+Documentation=file:///opt/analytics-mesh/README.md
 After=network-online.target mesh-node.service
 Wants=network-online.target
 
 [Service]
 Type=simple
+# User=/Group= are placeholders. Match mesh-node / mesh-plane.
 User=mesh
 Group=mesh
 WorkingDirectory=/opt/analytics-mesh
+EnvironmentFile=-/etc/analytics-mesh/mesh.env
 Environment=MESH_URL=http://127.0.0.1:8080
 Environment=MESH_PRINCIPAL=local
 Environment=MESH_MCP_TRANSPORT=http
 Environment=MESH_MCP_HOST=127.0.0.1
 Environment=MESH_MCP_PORT=8765
+# Shipped entrypoints: mesh-mcp, python -m mesh_mcp, or `uv run mesh mcp`
 ExecStart=/usr/bin/uv run --directory /opt/analytics-mesh mesh-mcp
 Restart=on-failure
 RestartSec=3

@@ -1,0 +1,40 @@
+# Copy to a local file (e.g. /etc/analytics-mesh/node.yaml). Not secret-bearing:
+# no pairing token, DSN, or API keys. Point `root` at a directory this node
+# may read. Sensitivity labels are advisory metadata (policy / UI / receipts),
+# not encryption.
+#
+#   cp configs/examples/node-real-data.yaml.example /etc/analytics-mesh/node.yaml
+#   # then set MESH_PAIR_TOKEN in /etc/analytics-mesh/mesh.env if this node pairs.
+#
+# Default listen stays 127.0.0.1. For Tailscale/LAN, set listen_host and
+# plane.public_endpoint to addresses other machines can reach — not 0.0.0.0.
+node_id: home-files
+artifact_dir: var/home-files/artifacts
+receipt_db: var/home-files/receipts.sqlite
+identity_key_path: var/home-files.identity.pem
+listen_host: 127.0.0.1
+listen_port: 8080
+connectors:
+  - id: local_files
+    type: local_files
+    # Change this to a real directory on this machine (absolute path recommended).
+    root: /var/lib/analytics-mesh/data
+    labels: [personal]  # or [work], [sensitive], ...
+analytics_dir: analytics
+policy_path: configs/examples/policy.yaml
+limits:
+  default_row_limit: 10000
+  max_row_limit: 100000
+  query_timeout_seconds: 30
+artifacts:
+  max_bytes_per_file: 104857600
+  max_total_bytes: 1073741824
+  retention_days: 7
+  max_files: 200
+# Optional plane pairing — token comes from MESH_PAIR_TOKEN, not this file:
+# plane:
+#   url: http://plane.tailnet.ts.net:8090
+#   token: unused-when-MESH_PAIR_TOKEN-is-set
+#   pair_token_env: MESH_PAIR_TOKEN
+#   register_on_start: true
+#   public_endpoint: http://this-node.tailnet.ts.net:8080

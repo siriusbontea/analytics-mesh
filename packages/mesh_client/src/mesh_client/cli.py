@@ -158,7 +158,7 @@ def pair(
     token: Optional[str] = typer.Option(None, "--token", help="Registration token"),
     endpoint: Optional[str] = typer.Option(None, "--endpoint", help="How the plane should reach this node"),
 ) -> None:
-    """Register this node with the control plane (demo pairing token)."""
+    """Register this node with the control plane (shared pairing token)."""
     if config is not None:
         from mesh_node.config import load_config
         from mesh_node.pairing import register_with_plane
@@ -171,11 +171,23 @@ def pair(
         except httpx.HTTPStatusError as exc:
             _print_http_error(exc.response)
             raise typer.Exit(code=1) from exc
+        except ValueError as exc:
+            raise typer.BadParameter(str(exc)) from exc
         _print_json(body)
         return
 
-    if not node_id or identity_key is None or not token or not endpoint:
-        raise typer.BadParameter("provide --config, or --node-id, --identity-key, --token, and --endpoint")
+    from mesh_common.secrets import resolve_pair_token
+
+    if not node_id or identity_key is None or not endpoint:
+        raise typer.BadParameter(
+            "provide --config, or --node-id, --identity-key, --endpoint, and --token (or MESH_PAIR_TOKEN)"
+        )
+    try:
+        token = resolve_pair_token(configured=token, override=token)
+    except ValueError as exc:
+        raise typer.BadParameter(
+            "provide --config, or --node-id, --identity-key, --endpoint, and --token (or MESH_PAIR_TOKEN)"
+        ) from exc
 
     from mesh_common.identity import build_registration, load_or_create_keypair
 

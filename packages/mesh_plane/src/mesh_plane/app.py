@@ -47,7 +47,7 @@ def create_app(config: PlaneConfig | None = None, proxy: NodeProxy | None = None
 
     @app.post("/nodes/register")
     def register_node(request: NodeRegistrationRequest) -> dict[str, object]:
-        if request.token != cfg.registration_token:
+        if request.token != cfg.resolved_registration_token():
             raise HTTPException(status_code=403, detail="invalid registration token")
         payload = canonical_registration_payload(
             node_id=request.node_id,

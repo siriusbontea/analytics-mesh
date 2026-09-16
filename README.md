@@ -2,7 +2,7 @@
 
 Query-first local analytics. Point a node at a directory of CSV, Parquet, or JSON files, run sandboxed DuckDB SQL, and get a Parquet artifact plus a hash-chained receipt. No LLM is required.
 
-M1 is a **single node** on one machine. M2 adds a thin **control plane** that registers nodes and routes `run_query` to a target node. The plane stores job metadata and pointers only — not source tables. M3 adds a **versioned analytic registry**, a **minimal web UI**, and optional **OpenAI-compatible model config**. M4 adds **YAML policy allowlists**, **artifact retention/size caps**, a **read-only Postgres connector**, and optional **NL→SQL assist** that never auto-executes. M5 completes v1: an **analytics-only MCP adapter**, an optional **Polars engine**, and a **main → fallback** assist chain recorded on receipts. M6 polishes that same **single-file `/ui`**: dark/light theme, connectors and plane jobs, receipt verify/copy, an editable principal, and a light SVG bar chart on suitable previews. M7 adds an in-page **Help drawer** and accessible **tooltips** so you can learn the tool without leaving `/ui`. M8 fixes **`mesh receipt --verify-chain` against a direct node**, adds **GitHub Actions CI**, and ships **`scripts/deep-smoke.sh`**. M9 adds **Playwright browser tests** for `/ui` (Help drawer + a successful `top_products` run) in a separate CI job. M10 makes optional **Propose SQL** usable against a local OpenAI-compatible endpoint (Ollama / LM Studio) via `configs/examples/node-with-models.yaml`. Analytics still work with **zero** LLM configured.
+M1 is a **single node** on one machine. M2 adds a thin **control plane** that registers nodes and routes `run_query` to a target node. The plane stores job metadata and pointers only — not source tables. M3 adds a **versioned analytic registry**, a **minimal web UI**, and optional **OpenAI-compatible model config**. M4 adds **YAML policy allowlists**, **artifact retention/size caps**, a **read-only Postgres connector**, and optional **NL→SQL assist** that never auto-executes. M5 completes v1: an **analytics-only MCP adapter**, an optional **Polars engine**, and a **main → fallback** assist chain recorded on receipts. M6 polishes that same **single-file `/ui`**: dark/light theme, connectors and plane jobs, receipt verify/copy, an editable principal, and a light SVG bar chart on suitable previews. M7 adds an in-page **Help drawer** and accessible **tooltips** so you can learn the tool without leaving `/ui`. M8 fixes **`mesh receipt --verify-chain` against a direct node**, adds **GitHub Actions CI**, and ships **`scripts/deep-smoke.sh`**. M9 adds **Playwright browser tests** for `/ui` (Help drawer + a successful `top_products` run) in a separate CI job. M10 makes optional **Propose SQL** usable against a local OpenAI-compatible endpoint (Ollama / LM Studio) via `configs/examples/node-with-models.yaml`. M11 hardens **pairing tokens**, **listen/Tailscale posture**, and **systemd units** for real machines without changing localhost demo defaults. Analytics still work with **zero** LLM configured.
 
 ## Requirements
 
@@ -49,7 +49,31 @@ Sample data is `data/samples/sales.csv`, exposed as table `sales`.
 
 The plane is a scheduler, not a data lake. Node A and Node B each keep their own files, artifacts, and receipt chain. The client talks to the plane; the plane forwards SQL to the chosen node and records a job (`queued` → `running` → `succeeded`/`failed`) with pointers back to that node.
 
-LAN/localhost is enough. Pairing uses a shared registration token (`demo-pair-token` in the example configs) plus each node's Ed25519 keypair. Replace the token for anything beyond a laptop demo; the register API is the hook for stronger pairing later. Tailscale is optional: if nodes are on a tailnet, put those addresses in `plane.public_endpoint` instead of `127.0.0.1`.
+LAN/localhost is enough for the demo. Pairing uses a shared registration token plus each node's Ed25519 keypair.
+
+**`demo-pair-token` is localhost-only.** Example configs keep that value so `./scripts/two-node-demo.sh` and CI stay secret-free. Replace it before any LAN, Tailscale, or multi-machine use. Prefer an environment override so the real secret is not committed:
+
+```bash
+export MESH_PAIR_TOKEN="$(openssl rand -hex 24)"   # same value on plane and every node
+# or in plane.yaml / node plane:  pair_token_env: MESH_PAIR_TOKEN
+```
+
+`MESH_PAIR_TOKEN` (or the env var named by `pair_token_env`) wins over YAML. `mesh pair --token` still wins over both. This is not PKI or SSO — it is a shared registration secret.
+
+**Listen stays `127.0.0.1` by default.** Do not bind `0.0.0.0`. For multi-machine, set Tailscale (or LAN) addresses on purpose:
+
+```yaml
+# plane.yaml
+listen_host: 100.64.0.10          # this machine's tailnet/LAN address
+
+# node-a.yaml
+listen_host: 100.64.0.11
+plane:
+  url: http://plane.tailnet.ts.net:8090
+  public_endpoint: http://node-a.tailnet.ts.net:8081
+```
+
+`MESH_LISTEN_HOST` / `MESH_LISTEN_PORT` override YAML on the `mesh-node` / `mesh-plane` entrypoints.
 
 ### One-shot script
 
@@ -141,8 +165,8 @@ plugins/connectors/postgres/
 plugins/engines/duckdb_engine/
 plugins/engines/polars_engine/   optional; DuckDB stays default
 analytics/                versioned YAML + SQL analytics (scanned from node `analytics_dir`)
-configs/examples/         node.yaml (LLM-free), node-with-models.yaml, models.yaml, policy.yaml, plane.yaml
-deploy/systemd/           mesh-node / mesh-plane / mesh-mcp unit files
+configs/examples/         node.yaml (LLM-free), node-with-models.yaml, node-real-data.yaml.example, models.yaml, policy.yaml, plane.yaml
+deploy/systemd/           mesh-node / mesh-plane / mesh-mcp units + mesh.env.example
 docker-compose.yml        optional Postgres for the read-only connector
 scripts/two-node-demo.sh  localhost two-node walkthrough
 scripts/deep-smoke.sh     post-serve / hermetic checks (health, analytic, receipt chain, policy, assist, Help UI)
@@ -351,6 +375,7 @@ M1–M5 together are v1: query where the data lives, return an artifact plus a v
 | M8 | Direct-node `--verify-chain`, GitHub Actions CI, `scripts/deep-smoke.sh` |
 | M9 | Playwright browser tests for `/ui` (Help + Run analytic) |
 | M10 | Local OpenAI-compatible Propose SQL (`node-with-models.yaml`, Ollama / LM Studio) |
+| M11 | Pair-token env override, listen/Tailscale docs, systemd + real data dirs |
 
 ### MCP adapter (analytics toolset only)
 
@@ -418,8 +443,8 @@ uv run mesh analytics run top_products_polars
 
 ### Auth and services
 
-- Default listen address is `127.0.0.1`. Put nodes on LAN or Tailscale; do not publish MCP or node HTTP on a public NIC.
-- Pairing still uses the registration token + node Ed25519 key. Replace `demo-pair-token` outside a laptop demo.
+- Default listen address is `127.0.0.1`. Put nodes on LAN or Tailscale by setting those addresses in `listen_host` / `plane.public_endpoint`; do not publish MCP or node HTTP on a public NIC, and do not enable `0.0.0.0` by default.
+- Pairing still uses the registration token + node Ed25519 key. Example YAML keeps `demo-pair-token` for laptop demos. Beyond localhost, set `MESH_PAIR_TOKEN` or `pair_token_env` (see [Pairing token](#pairing-token-m11)).
 - Policy principals (`--principal` / `MESH_PRINCIPAL`) are the authorization identity. MCP does not add a second auth layer; it forwards the principal to the node. Unknown principals are denied when `deny_unknown_principals` is set.
 - Connector secrets stay on the node (`dsn_env`, keychain). They are never tools, YAML API keys, or MCP arguments.
 - Artifact size/retention caps are unchanged from M4 (`artifacts:` on the node).
@@ -468,6 +493,67 @@ Install Chromium once, then `uv run pytest -m ui`. GitHub Actions runs that as t
 ## M10 — local LLM for Propose SQL
 
 Default `configs/examples/node.yaml` is still LLM-free. `configs/examples/node-with-models.yaml` sets `models_path` to `configs/examples/models.yaml` so **Propose SQL** can call a local OpenAI-compatible endpoint (Ollama at `http://127.0.0.1:11434/v1` or LM Studio). Example `model:` ids are placeholders: `ollama pull` a tag you have, probe `GET {base_url}/models` (or `scripts/check-models.sh`), then set `model:` to that tag. `policy.default_mode: local_only` keeps the optional frontier fallback off unless you allow it. Assist still never auto-executes.
+
+## M11 — hardening for real machines
+
+Localhost demo defaults are unchanged: `127.0.0.1`, `demo-pair-token`, `data/samples`. This milestone documents how to point a real box at real data without inventing PKI, SSO, or classified packaging.
+
+### Pairing token (M11)
+
+| Source | When it is used |
+| --- | --- |
+| `mesh pair --token` | Always wins |
+| `MESH_PAIR_TOKEN`, or the env var named by `pair_token_env` | Wins over YAML when set |
+| `registration_token` / `plane.token` in YAML | Laptop demo fallback (`demo-pair-token`) |
+
+If `pair_token_env` is set and that variable is empty, startup/register fails rather than falling back to the demo token. Generate a secret (`openssl rand -hex 24`) and put it in `/etc/analytics-mesh/mesh.env` (see systemd below). Do not commit it.
+
+### Listen posture / Tailscale
+
+Default `listen_host` is `127.0.0.1` on node, plane, and MCP. For two machines on a tailnet, set each process's listen address and each node's `plane.public_endpoint` / `plane.url` to hostnames or 100.x addresses the others can reach. Example comments live in `configs/examples/plane.yaml`, `node-a.yaml`, and `node-b.yaml`.
+
+### Real data dirs
+
+Example nodes read `data/samples` (and `data/samples/node-b` on Node B). To point `local_files` at a real directory:
+
+1. Copy `configs/examples/node-real-data.yaml.example` (no secrets) to a local config.
+2. Set `connectors[].root` to an absolute path this node may read.
+3. Keep `labels` accurate (`personal`, `work`, `sensitive`, ...). Labels are advisory metadata for policy/UI/receipts — they are not encryption.
+
+```yaml
+connectors:
+  - id: local_files
+    type: local_files
+    root: /var/lib/analytics-mesh/data
+    labels: [personal]
+```
+
+### Production-ish on a Linux box
+
+Units in `deploy/systemd/` match the shipped scripts (`mesh-node`, `mesh-plane`, `mesh-mcp`), `python -m mesh_*`, and `uv run mesh serve|plane|mcp`. They default to localhost, `User=mesh` / `Group=mesh` as placeholders, and `WorkingDirectory=/opt/analytics-mesh`.
+
+```bash
+# 1. Checkout to /opt/analytics-mesh (or change WorkingDirectory).
+# 2. Create the service account (or edit User=/Group=).
+sudo useradd --system --home /opt/analytics-mesh --shell /usr/sbin/nologin mesh
+sudo chown -R mesh:mesh /opt/analytics-mesh
+
+# 3. Config + secrets (chmod 600 the env file).
+sudo mkdir -p /etc/analytics-mesh
+sudo cp configs/examples/node-real-data.yaml.example /etc/analytics-mesh/node.yaml
+sudo cp configs/examples/plane.yaml /etc/analytics-mesh/plane.yaml
+sudo cp deploy/systemd/mesh.env.example /etc/analytics-mesh/mesh.env
+sudo chmod 600 /etc/analytics-mesh/mesh.env
+# edit mesh.env: MESH_PAIR_TOKEN=...  (and optional MESH_LISTEN_HOST / model keys)
+
+# 4. Install units.
+sudo cp deploy/systemd/mesh-node.service deploy/systemd/mesh-plane.service \
+        deploy/systemd/mesh-mcp.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now mesh-plane mesh-node   # MCP only if you want HTTP tools
+```
+
+`EnvironmentFile=-/etc/analytics-mesh/mesh.env` is optional (`-` prefix) so a laptop copy of the unit still starts. Deep-smoke and the two-node demo keep using `demo-pair-token` on localhost.
 
 ## Docs
 

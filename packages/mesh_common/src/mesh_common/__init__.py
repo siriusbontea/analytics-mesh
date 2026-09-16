@@ -17,6 +17,7 @@ from mesh_common.llm import (
 )
 from mesh_common.policy import AllowAllPolicy, PolicyDecision, PolicyDenied, PolicyEngine, YamlPolicy, load_policy
 from mesh_common.receipts import GENESIS_HASH, ReceiptStore
+from mesh_common.secrets import DEFAULT_PAIR_TOKEN_ENV, resolve_pair_token
 from mesh_common.registry import AnalyticRegistry, AnalyticSpecError
 from mesh_common.schemas import (
     AnalyticRunRequest,
@@ -63,6 +64,7 @@ __all__ = [
     "ChainVerification",
     "ColumnSchema",
     "ConnectorInfo",
+    "DEFAULT_PAIR_TOKEN_ENV",
     "GENESIS_HASH",
     "JobRecord",
     "ModelAttempt",
@@ -96,6 +98,7 @@ __all__ = [
     "load_policy",
     "probe_models",
     "load_or_create_keypair",
+    "resolve_pair_token",
     "sha256_bytes",
     "sha256_file",
     "sha256_text",

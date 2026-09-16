@@ -3,6 +3,7 @@ from __future__ import annotations
 import httpx
 
 from mesh_common.identity import build_registration
+from mesh_common.secrets import resolve_pair_token
 from mesh_node.config import NodeConfig
 from mesh_node.runtime import NodeRuntime
 
@@ -25,10 +26,14 @@ def register_with_plane(
         if config.plane is None:
             raise ValueError("plane URL is required to register")
         plane_url = config.plane.url
-    if token is None:
-        if config.plane is None:
-            raise ValueError("registration token is required to register")
-        token = config.plane.token
+    try:
+        token = resolve_pair_token(
+            config.plane.token if config.plane else None,
+            pair_token_env=config.plane.pair_token_env if config.plane else None,
+            override=token,
+        )
+    except ValueError as exc:
+        raise ValueError("registration token is required to register") from exc
     body = build_registration(
         keys=runtime.identity,
         endpoint=endpoint or node_public_endpoint(config),
