@@ -21,3 +21,4 @@ htmlcov/
 *.pem
 *.sqlite
 *.sqlite-journal
+data/samples/**/uploads/

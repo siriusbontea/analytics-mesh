@@ -208,8 +208,9 @@ html = sys.stdin.read()
 low = html.lower()
 assert 'id=\"helpDrawer\"' in html or \"id='helpDrawer'\" in html, 'missing help drawer'
 assert 'getting started' in low, 'missing Getting started'
-" || fail "GET /ui missing Help drawer / Getting started markers"
-ok "GET /ui contains Help drawer / Getting started"
+assert 'id=\"uploadZone\"' in html or \"id='uploadZone'\" in html, 'missing upload zone'
+" || fail "GET /ui missing Help drawer / Getting started / upload markers"
+ok "GET /ui contains Help drawer / Getting started / upload zone"
 
 if [[ -n "${PLANE_URL:-}" ]]; then
   plane_health="$(http_json GET "${PLANE_URL}/health")" || fail "GET ${PLANE_URL}/health"

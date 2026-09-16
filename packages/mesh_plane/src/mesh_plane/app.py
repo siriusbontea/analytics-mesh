@@ -3,10 +3,11 @@ from __future__ import annotations
 import hmac
 from datetime import datetime, timezone
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import Response
 
 from mesh_common.hashing import sha256_text
+from mesh_common.uploads import DEFAULT_UPLOAD_MAX_BYTES, UploadRejected, read_upload_bytes
 from mesh_common.identity import NodeKeyPair, canonical_registration_payload
 from mesh_common.schemas import (
     AnalyticRunRequest,
@@ -138,6 +139,29 @@ def create_app(config: PlaneConfig | None = None, proxy: NodeProxy | None = None
     def node_connectors(node_id: str) -> dict[str, object]:
         node = _require_node(store, node_id)
         return node_proxy.list_connectors(node.endpoint)
+
+    @app.post("/nodes/{node_id}/upload")
+    async def node_upload(
+        node_id: str,
+        file: UploadFile = File(...),
+        principal: str = Form("web"),
+        connector_id: str | None = Form(None),
+    ) -> dict[str, object]:
+        node = _require_node(store, node_id)
+        try:
+            content = await read_upload_bytes(file, DEFAULT_UPLOAD_MAX_BYTES)
+            return node_proxy.upload(
+                node.endpoint,
+                filename=file.filename or "upload",
+                content=content,
+                content_type=file.content_type,
+                principal=principal,
+                connector_id=connector_id,
+            )
+        except UploadRejected as exc:
+            raise HTTPException(status_code=400, detail={"message": str(exc)}) from exc
+        finally:
+            await file.close()
 
     @app.get("/nodes/{node_id}/models")
     def node_models(node_id: str, probe: bool = False) -> dict[str, object]:

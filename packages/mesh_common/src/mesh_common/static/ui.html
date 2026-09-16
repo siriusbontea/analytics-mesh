@@ -232,6 +232,29 @@
     }
     .chip strong { display: block; }
     .tables { color: var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.8rem; }
+    .upload-zone {
+      margin-top: 0.75rem;
+      padding: 0.8rem 0.9rem;
+      border: 1.5px dashed var(--line);
+      border-radius: 10px;
+      background: color-mix(in srgb, var(--ink) 3%, var(--card));
+      text-align: center;
+    }
+    .upload-zone.drag {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+    }
+    .upload-zone.disabled {
+      opacity: 0.65;
+    }
+    .upload-zone p { margin: 0 0 0.45rem; }
+    .upload-actions {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: center;
+      align-items: center;
+      flex-wrap: wrap;
+    }
     .jobs { width: 100%; font-size: 0.84rem; }
     .jobs a { font-weight: 600; }
     .badge {
@@ -444,6 +467,16 @@
       </div>
       <p id="connectorsStatus" class="muted">Loading connectors…</p>
       <div id="connectorsList" class="chip-list"></div>
+      <div id="uploadZone" class="upload-zone" aria-describedby="tip-upload">
+        <p id="uploadHint">Drop CSV, Parquet, or JSON onto the selected node. The plane does not store source tables.</p>
+        <div class="upload-actions">
+          <input id="uploadFile" class="sr-only" type="file" accept=".csv,.tsv,.parquet,.pq,.json,.jsonl,.ndjson">
+          <button id="uploadBrowse" class="ghost small" type="button" aria-describedby="tip-upload">Browse</button>
+          <button type="button" class="tip-trigger" aria-describedby="tip-upload" aria-label="About file upload">?</button>
+          <span id="tip-upload" role="tooltip" class="tip-pop">Files upload to the selected node (this node on a direct /ui). They land under that node’s local_files uploads/ directory. Open the plane UI as the main product entry.</span>
+        </div>
+        <p id="uploadStatus" class="muted" role="status"></p>
+      </div>
     </section>
     <section id="jobsPanel" class="hidden">
       <div class="section-head">
@@ -599,8 +632,9 @@
       <article id="help-getting-started" data-help-section="getting-started">
         <h3>Getting started</h3>
         <ol>
-          <li>Open <code>/ui</code> on a node (<code>uv run mesh serve</code>) or the plane (<code>uv run mesh plane</code>).</li>
-          <li>On the plane, pick a registered node. On a node UI you are already talking to that machine.</li>
+          <li>Open the <strong>plane</strong> UI at <code>http://127.0.0.1:8090/ui</code> (<code>uv run mesh plane</code> or <code>uv run mesh demo</code>). That is the product entry — even with a single registered node.</li>
+          <li>Pick a registered node. Drop a CSV, Parquet, or JSON onto the connectors panel (or <strong>Browse</strong>). Files upload to that node under <code>uploads/</code>, not to the plane.</li>
+          <li>Direct node <code>/ui</code> (<code>uv run mesh serve</code>) remains for operators and debug; the node is implicit there.</li>
           <li>Choose a registered analytic (for example <code>top_products</code>) or switch Source to Ad-hoc SQL.</li>
           <li>Click <strong>Run</strong>. The node executes; source data never leaves that node.</li>
           <li>Read the preview table. A light bar chart appears when the preview has a label column plus a numeric column.</li>
@@ -624,27 +658,27 @@
       <article id="help-cli-vs-ui" data-help-section="cli-vs-ui">
         <h3>CLI vs UI</h3>
         <p>The UI is a thin static page over the same HTTP APIs as the CLI. Nothing here is a second execution path.</p>
-        <pre>uv run mesh serve --config configs/examples/node.yaml
-# optional Propose SQL: configs/examples/node-with-models.yaml after Ollama is up
-uv run mesh analytics list
-uv run mesh analytics run top_products
-uv run mesh query --sql "SELECT product, SUM(amount) AS total FROM sales GROUP BY product"
-uv run mesh receipt &lt;receipt_id&gt; --verify-chain
-uv run mesh plane --config configs/examples/plane.yaml
-uv run mesh query --url http://127.0.0.1:8090 --node node-b --sql "SELECT 1"</pre>
+        <pre>uv run mesh demo
+# or: uv run mesh plane --config configs/examples/plane.yaml
+#     uv run mesh serve --config configs/examples/node.yaml
+# Product UI (one URL): http://127.0.0.1:8090/ui
+uv run mesh analytics run top_products --url http://127.0.0.1:8090 --node local-dev
+uv run mesh query --url http://127.0.0.1:8090 --node local-dev --sql "SELECT product FROM sales"
+uv run mesh receipt &lt;receipt_id&gt; --url http://127.0.0.1:8090 --verify-chain
+# Operator / debug: uv run mesh serve then http://127.0.0.1:8080/ui</pre>
         <p>Use the CLI when you want files on disk, pairing, MCP, or scripting. Use this page for interactive preview, chart, and receipt inspection.</p>
       </article>
       <article id="help-receipts" data-help-section="receipts">
         <h3>Receipts</h3>
         <p>Each receipt hashes its payload plus <code>prev_hash</code> (SHA-256). The first receipt links to a genesis hash of 64 zeros. <strong>Verify chain</strong> walks the owning node’s SQLite log.</p>
-        <p><strong>Recorded:</strong> principal, node, action, params (analytic id/version or SQL hash), connector versions, engine, artifact hash, status, and model fields only when assist was used.</p>
+        <p><strong>Recorded:</strong> principal, node, action, params (analytic id/version, SQL hash, or upload filename + SHA-256), connector versions, engine, artifact hash, status, and model fields only when assist was used.</p>
         <p><strong>Not recorded on the plane:</strong> source tables. The plane stores job metadata and pointers (artifact/receipt ids and URLs). The node remains the source of truth for verification.</p>
       </article>
       <article id="help-plane-vs-node" data-help-section="plane-vs-node">
         <h3>Plane vs node</h3>
         <ul>
-          <li><strong>Node UI</strong> (<code>mesh serve</code>, typically <code>http://127.0.0.1:8080/ui</code>) talks only to that node. There is no jobs list.</li>
-          <li><strong>Plane UI</strong> (<code>mesh plane</code>, typically <code>http://127.0.0.1:8090/ui</code>) needs a node picker. The plane forwards the run and records a job.</li>
+          <li><strong>Plane UI</strong> is the product entry (<code>mesh plane</code> or <code>mesh demo</code>, typically <code>http://127.0.0.1:8090/ui</code>). Pick a node; runs and file uploads go to that node. The plane stores pointers only.</li>
+          <li><strong>Node UI</strong> (<code>mesh serve</code>, typically <code>http://127.0.0.1:8080/ui</code>) is for operators and debug. It talks only to that node. There is no jobs list. Uploads land on this node.</li>
           <li><strong>Jobs</strong> are metadata + pointers. <code>#job=&lt;id&gt;</code> loads that job’s preview and receipt; the artifact is streamed from the owning node, not stored on the plane.</li>
           <li><strong>Listen / pairing:</strong> default bind is <code>127.0.0.1</code>. For another machine, set Tailscale or LAN addresses in <code>listen_host</code> and <code>plane.public_endpoint</code> — not <code>0.0.0.0</code>. Example YAML keeps <code>demo-pair-token</code> for localhost only; set <code>MESH_PAIR_TOKEN</code> beyond that.</li>
         </ul>
@@ -715,7 +749,8 @@ uv run mesh query --url http://127.0.0.1:8090 --node node-b --sql "SELECT 1"</pr
     }
 
     function formatError(body, fallback) {
-      const detail = body && body.detail;
+      let detail = body && body.detail;
+      if (detail && typeof detail === "object" && detail.detail) detail = detail.detail;
       if (typeof detail === "string" && detail) return detail;
       if (detail && typeof detail === "object") {
         return detail.message || detail.error || fallback;
@@ -1009,6 +1044,57 @@ uv run mesh query --url http://127.0.0.1:8090 --node node-b --sql "SELECT 1"</pr
       } catch (err) {
         status.textContent = "";
         setStatus(status, "Could not load connectors: " + err.message, "status err");
+      } finally {
+        syncUploadZone();
+      }
+    }
+
+    function uploadUrl() {
+      if (state.kind === "plane") {
+        const nodeId = currentNode();
+        if (!nodeId) throw new Error("Pick a registered node first.");
+        return "/nodes/" + encodeURIComponent(nodeId) + "/upload";
+      }
+      return "/upload";
+    }
+
+    function syncUploadZone() {
+      const zone = $("uploadZone");
+      const browse = $("uploadBrowse");
+      const hint = $("uploadHint");
+      const ready = state.kind !== "plane" || !!currentNode();
+      zone.classList.toggle("disabled", !ready);
+      browse.disabled = !ready;
+      $("uploadFile").disabled = !ready;
+      if (!ready) {
+        hint.textContent = "Pick a registered node to upload CSV, Parquet, or JSON. Files go to that node, not the plane.";
+      } else if (state.kind === "plane") {
+        hint.textContent = "Drop CSV, Parquet, or JSON onto the selected node. The plane does not store source tables.";
+      } else {
+        hint.textContent = "Drop CSV, Parquet, or JSON here. Files land on this node under uploads/.";
+      }
+    }
+
+    async function uploadSelectedFile(file) {
+      if (!file) return;
+      setStatus($("uploadStatus"), "Uploading " + file.name + "…");
+      try {
+        const form = new FormData();
+        form.append("file", file, file.name);
+        form.append("principal", currentPrincipal());
+        const body = await api(uploadUrl(), { method: "POST", body: form });
+        persistPrincipal();
+        const tables = (body.tables || []).map(function (table) { return table.name; }).filter(Boolean);
+        const where = state.kind === "plane" ? (currentNode() || "the selected node") : (state.nodeId || "this node");
+        const msg = tables.length
+          ? "Uploaded " + (body.stored_as || file.name) + " to " + where + ". New table" + (tables.length === 1 ? "" : "s") + ": " + tables.join(", ") + "."
+          : "Uploaded " + (body.stored_as || file.name) + " to " + where + ".";
+        setStatus($("uploadStatus"), msg, "status ok");
+        showBanner(msg, "ok");
+        await loadConnectors();
+      } catch (err) {
+        setStatus($("uploadStatus"), err.message, "status err");
+        showBanner(err.message, "err");
       }
     }
 
@@ -1296,6 +1382,34 @@ uv run mesh query --url http://127.0.0.1:8090 --node node-b --sql "SELECT 1"</pr
       await loadAnalytics();
       await loadModels();
       await loadConnectors();
+      syncUploadZone();
+    });
+    $("uploadBrowse").addEventListener("click", function () {
+      if (!$("uploadBrowse").disabled) $("uploadFile").click();
+    });
+    $("uploadFile").addEventListener("change", function () {
+      const file = $("uploadFile").files && $("uploadFile").files[0];
+      $("uploadFile").value = "";
+      uploadSelectedFile(file);
+    });
+    ["dragenter", "dragover"].forEach(function (name) {
+      $("uploadZone").addEventListener(name, function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (!$("uploadBrowse").disabled) $("uploadZone").classList.add("drag");
+      });
+    });
+    ["dragleave", "drop"].forEach(function (name) {
+      $("uploadZone").addEventListener(name, function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        $("uploadZone").classList.remove("drag");
+      });
+    });
+    $("uploadZone").addEventListener("drop", function (event) {
+      if ($("uploadBrowse").disabled) return;
+      const file = event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files[0];
+      uploadSelectedFile(file);
     });
     $("runBtn").addEventListener("click", function () { run(); });
     $("proposeBtn").addEventListener("click", proposeSql);
@@ -1469,14 +1583,14 @@ uv run mesh query --url http://127.0.0.1:8090 --node node-b --sql "SELECT 1"</pr
         const health = await api("/health");
         if (health.plane_id) {
           state.kind = "plane";
-          $("modeLabel").textContent = "Control plane " + health.plane_id + " — pick a registered node.";
+          $("modeLabel").textContent = "Product UI — plane " + health.plane_id + ". Pick a node; uploads go to that node.";
           $("nodeWrap").classList.remove("hidden");
           await loadNodes();
           await loadJobs();
         } else {
           state.kind = "node";
           state.nodeId = health.node_id;
-          $("modeLabel").textContent = "Direct node " + health.node_id + ".";
+          $("modeLabel").textContent = "Operator UI — node " + health.node_id + " (direct). Uploads land on this node.";
         }
         await loadAnalytics();
         await loadModels();

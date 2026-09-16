@@ -218,3 +218,13 @@ class PlaneQueryResponse(BaseModel):
     artifact: ArtifactRef | None = None
     receipt: Receipt | None = None
     preview: ResultPreview | None = None
+
+
+class UploadResponse(BaseModel):
+    filename: str
+    stored_as: str
+    bytes: int
+    sha256: str
+    connector_id: str
+    tables: list[TableSchema] = Field(default_factory=list)
+    receipt: Receipt

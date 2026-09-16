@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Two-node Analytics Mesh demo on localhost.
-# Starts a thin control plane plus Node A and Node B (separate sample data).
+# Product UI is the plane (one URL). Nodes register; you pick a node in /ui.
+# Direct node /ui remains for operators. Same path as `uv run mesh demo`.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -83,12 +84,17 @@ echo "job metadata on the plane (no source tables):"
 uv run mesh jobs --url "$PLANE_URL"
 
 echo
+echo "============================================================"
+echo "  Product UI (one URL):  ${PLANE_URL}/ui"
+echo "  Pick a node, drop a CSV/Parquet/JSON, run an analytic or SQL."
+echo "  Files upload to the selected node — the plane stores no tables."
+echo "  Operator / debug UI:   ${NODE_A_URL}/ui  or  ${NODE_B_URL}/ui"
+echo "============================================================"
+echo
 echo "Demo processes are still running. Ctrl-C to stop."
 echo "More commands:"
 echo "  uv run mesh nodes --url $PLANE_URL"
 echo "  uv run mesh query --url $PLANE_URL --node node-b --sql 'SELECT product FROM sales'"
 echo "  uv run mesh analytics run top_products --url $PLANE_URL --node node-b"
 echo "  uv run mesh receipt <receipt_id> --url $PLANE_URL --verify-chain"
-echo "Web UI (plane, pick a node): $PLANE_URL/ui"
-echo "Web UI (Node B direct): $NODE_B_URL/ui"
 wait

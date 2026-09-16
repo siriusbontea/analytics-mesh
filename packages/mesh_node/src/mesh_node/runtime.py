@@ -10,7 +10,7 @@ import httpx
 import pyarrow as pa
 
 from mesh_common.artifacts import ArtifactStore, ArtifactTooLarge
-from mesh_common.hashing import sha256_text
+from mesh_common.hashing import sha256_bytes, sha256_text
 from mesh_common.identity import generate_keypair, load_or_create_keypair
 from mesh_common.llm import LlmClient, describe_llm_error, extract_sql
 from mesh_common.policy import PolicyDenied, PolicyEngine, load_policy
@@ -29,7 +29,9 @@ from mesh_common.schemas import (
     Receipt,
     ResultPreview,
     TableSchema,
+    UploadResponse,
 )
+from mesh_common.uploads import UploadRejected, sanitize_upload_filename, unique_destination
 from mesh_connector_local_files import LocalFilesConnector
 from mesh_engine_duckdb import DuckDBEngine, SqlGuardError
 from mesh_engine_duckdb.sql_guard import validate_sql
@@ -82,6 +84,120 @@ class NodeRuntime:
 
     def list_analytics(self) -> list[AnalyticSpec]:
         return self.registry.list()
+
+    def upload_file(
+        self,
+        *,
+        filename: str | None,
+        content: bytes,
+        principal: str,
+        connector_id: str | None = None,
+    ) -> UploadResponse:
+        connector = self._local_files_connector(connector_id)
+        raw_name = filename or ""
+        extra = {"filename": raw_name, "connector_id": connector.id}
+        self._require(
+            principal=principal,
+            action="upload",
+            connector_ids=[connector.id],
+            hash_payload=raw_name,
+            extra_params=extra,
+        )
+        try:
+            stored_as = sanitize_upload_filename(filename)
+            dest_dir = connector.uploads_dir
+            dest_dir.mkdir(parents=True, exist_ok=True)
+            dest = unique_destination(dest_dir, stored_as)
+            try:
+                dest.resolve().relative_to(dest_dir.resolve())
+            except ValueError as exc:
+                raise UploadRejected("upload destination escaped the uploads directory") from exc
+            max_bytes = self.config.uploads.max_bytes
+            if len(content) > max_bytes:
+                raise UploadRejected(
+                    f"file exceeds max upload size ({max_bytes} bytes)"
+                )
+            dest.write_bytes(content)
+            try:
+                schema = connector.schema_for_file(dest)
+            except Exception as exc:  # noqa: BLE001 — invalid payload is a user error
+                dest.unlink(missing_ok=True)
+                raise UploadRejected(f"file is not a readable table: {exc}") from exc
+        except UploadRejected as exc:
+            receipt = self._upload_receipt(
+                principal=principal,
+                hash_value=sha256_text(raw_name),
+                extra_params={**extra, "error": str(exc)},
+                status="failed",
+                error=str(exc),
+            )
+            raise UploadRejected(str(exc), receipt=receipt) from exc
+
+        digest = sha256_bytes(content)
+        tables = [schema]
+        receipt = self._upload_receipt(
+            principal=principal,
+            hash_value=digest,
+            extra_params={
+                "filename": stored_as,
+                "original_filename": raw_name,
+                "bytes": len(content),
+                "sha256": digest,
+                "connector_id": connector.id,
+                "tables": [table.name for table in tables],
+                "path": str(dest),
+            },
+            status="succeeded",
+        )
+        return UploadResponse(
+            filename=stored_as,
+            stored_as=dest.name,
+            bytes=len(content),
+            sha256=digest,
+            connector_id=connector.id,
+            tables=tables,
+            receipt=receipt,
+        )
+
+    def _upload_receipt(
+        self,
+        *,
+        principal: str,
+        hash_value: str,
+        extra_params: dict[str, Any],
+        status: str,
+        error: str | None = None,
+    ) -> Receipt:
+        return self.receipts.append(
+            Receipt(
+                receipt_id=str(uuid4()),
+                ts=datetime.now(timezone.utc),
+                principal=principal,
+                node_id=self.config.node_id,
+                action="upload",
+                analytic_or_sql_hash=hash_value,
+                connector_versions={connector.id: connector.version for connector in self.connectors.values()},
+                engine_version=self.engine.version,
+                params=extra_params,
+                status=status,  # type: ignore[arg-type]
+                prev_hash="",
+                receipt_hash="",
+                error=error,
+            )
+        )
+
+    def _local_files_connector(self, connector_id: str | None):
+        if connector_id:
+            connector = self.connectors.get(connector_id)
+            if connector is None:
+                raise UploadRejected(f"unknown connector: {connector_id}")
+            if not isinstance(connector, LocalFilesConnector):
+                raise UploadRejected(f"connector {connector_id} does not accept file uploads")
+            return connector
+        for connector in self.connectors.values():
+            if isinstance(connector, LocalFilesConnector):
+                return connector
+        raise UploadRejected("no local_files connector is configured")
 
     def get_artifact(self, artifact_id: str) -> ArtifactRef | None:
         cached = self._artifacts.get(artifact_id)
@@ -683,6 +799,7 @@ def _build_connector(item: ConnectorConfig):
             root=item.root,
             connector_id=item.id,
             labels=item.labels,
+            uploads_path=item.uploads_path,
         )
     if item.type == "postgres":
         from mesh_connector_postgres import PostgresConnector

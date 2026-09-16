@@ -11,6 +11,7 @@ import pyarrow.json as pa_json
 import pyarrow.parquet as pq
 
 from mesh_common.schemas import ColumnSchema, TableSchema
+from mesh_common.uploads import resolve_uploads_dir
 
 __version__ = "0.1.0"
 
@@ -68,31 +69,54 @@ class LocalFilesConnector:
         root: Path | str,
         connector_id: str = "local_files",
         labels: list[str] | None = None,
+        uploads_path: Path | str | None = None,
     ) -> None:
         self.root = Path(root)
         self.id = connector_id
         self.version = __version__
         self.sensitivity_labels = list(labels or [])
+        self.uploads_path = Path(uploads_path) if uploads_path is not None else None
+
+    @property
+    def uploads_dir(self) -> Path:
+        return resolve_uploads_dir(self.root, self.uploads_path)
 
     def discover_schema(self) -> list[TableSchema]:
+        tables: list[TableSchema] = []
+        for path, name in self._iter_named_files():
+            table = _read_table(path)
+            tables.append(self._schema_from_table(path, name, table))
+        return tables
+
+    def schema_for_file(self, path: Path | str) -> TableSchema:
+        source = Path(path).resolve()
+        table = _read_table(source)
+        names = {item.resolve(): name for item, name in self._iter_named_files()}
+        name = names.get(source)
+        if name is None:
+            used = set(names.values())
+            name = _safe_name(source, self.root, used)
+        return self._schema_from_table(source, name, table)
+
+    def _iter_named_files(self) -> list[tuple[Path, str]]:
         if not self.root.exists():
             return []
         used: set[str] = set()
-        tables: list[TableSchema] = []
+        named: list[tuple[Path, str]] = []
         for path in sorted(self.root.rglob("*"), key=lambda item: (len(item.relative_to(self.root).parts), str(item))):
             if not path.is_file() or path.suffix.lower() not in _FORMATS:
                 continue
-            table = _read_table(path)
-            tables.append(
-                TableSchema(
-                    name=_safe_name(path, self.root, used),
-                    connector_id=self.id,
-                    columns=[ColumnSchema(name=field.name, type=str(field.type)) for field in table.schema],
-                    source_path=str(path.resolve()),
-                    format=_FORMATS[path.suffix.lower()],
-                )
-            )
-        return tables
+            named.append((path, _safe_name(path, self.root, used)))
+        return named
+
+    def _schema_from_table(self, path: Path, name: str, table: pa.Table) -> TableSchema:
+        return TableSchema(
+            name=name,
+            connector_id=self.id,
+            columns=[ColumnSchema(name=field.name, type=str(field.type)) for field in table.schema],
+            source_path=str(path.resolve()),
+            format=_FORMATS[path.suffix.lower()],
+        )
 
     def scan(
         self,

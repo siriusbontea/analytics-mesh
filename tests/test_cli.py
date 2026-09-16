@@ -24,6 +24,13 @@ def test_chain_path_uses_node_route_on_direct_node_even_when_receipt_has_node_id
     assert chain_path(target="plane", node="node-a", owning_node_id="node-b") == "/nodes/node-a/receipts/chain"
 
 
+def test_cli_demo_help_points_at_plane_ui():
+    result = CliRunner().invoke(app, ["demo", "--help"])
+    assert result.exit_code == 0
+    assert "plane" in result.stdout.lower()
+    assert "one url" in result.stdout.lower() or "product" in result.stdout.lower()
+
+
 def test_cli_help():
     result = CliRunner().invoke(app, ["--help"])
     assert result.exit_code == 0
@@ -37,6 +44,7 @@ def test_cli_help():
     assert "analytics" in result.stdout
     assert "assist" in result.stdout
     assert "mcp" in result.stdout
+    assert "demo" in result.stdout
 
 
 def test_cli_query_and_receipt(tmp_path: Path, data_dir: Path):

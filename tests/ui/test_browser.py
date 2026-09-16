@@ -54,6 +54,22 @@ def test_run_top_products_shows_preview_and_receipt(page: Page, live_node: str) 
     expect(page.locator("#copyReceiptBtn")).to_be_enabled()
 
 
+def test_upload_zone_visible_and_csv_becomes_table(page: Page, live_node: str, tmp_path) -> None:
+    page.goto(f"{live_node}/ui", wait_until="domcontentloaded")
+    zone = page.locator("#uploadZone")
+    browse = page.locator("#uploadBrowse")
+    expect(zone).to_be_visible()
+    expect(browse).to_be_visible()
+    expect(browse).to_have_text("Browse")
+    expect(page.locator("#tip-upload")).to_contain_text("selected node")
+
+    csv_path = tmp_path / "upload_demo.csv"
+    csv_path.write_text("item,qty\napple,3\n", encoding="utf-8")
+    page.locator("#uploadFile").set_input_files(str(csv_path))
+    expect(page.locator("#uploadStatus")).to_contain_text("upload_demo", timeout=20_000)
+    expect(page.locator("#connectorsList")).to_contain_text("upload_demo", timeout=15_000)
+
+
 def test_run_control_has_accessible_description(page: Page, live_node: str) -> None:
     page.goto(f"{live_node}/ui", wait_until="domcontentloaded")
     run = page.locator("#runBtn")

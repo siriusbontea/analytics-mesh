@@ -40,6 +40,30 @@ class NodeProxy:
     def list_connectors(self, endpoint: str) -> dict[str, object]:
         return self._get_json(endpoint, "/connectors")
 
+    def upload(
+        self,
+        endpoint: str,
+        *,
+        filename: str,
+        content: bytes,
+        principal: str,
+        content_type: str | None = None,
+        connector_id: str | None = None,
+    ) -> dict[str, object]:
+        data: dict[str, str] = {"principal": principal}
+        if connector_id:
+            data["connector_id"] = connector_id
+        files = {"file": (filename, content, content_type or "application/octet-stream")}
+        response = httpx.post(
+            f"{endpoint.rstrip('/')}/upload",
+            data=data,
+            files=files,
+            timeout=self.timeout,
+        )
+        if response.status_code >= 400:
+            raise HTTPException(status_code=response.status_code, detail=_unwrap_detail(response))
+        return response.json()
+
     def models_status(self, endpoint: str, probe: bool = False) -> dict[str, object]:
         suffix = "/models?probe=true" if probe else "/models"
         return self._get_json(endpoint, suffix)
@@ -84,6 +108,13 @@ class NodeProxy:
             raise HTTPException(status_code=404, detail="artifact not found")
         response.raise_for_status()
         return response
+
+
+def _unwrap_detail(response: httpx.Response) -> object:
+    detail = _json_or_text(response)
+    if isinstance(detail, dict) and "detail" in detail:
+        return detail["detail"]
+    return detail
 
 
 def _json_or_text(response: httpx.Response) -> object:

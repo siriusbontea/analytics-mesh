@@ -40,6 +40,7 @@ TIP_IDS = (
     "tip-verify-chain",
     "tip-download",
     "tip-chart",
+    "tip-upload",
 )
 
 
@@ -91,6 +92,9 @@ def test_help_content_matches_product_behavior():
     assert "ollama" in html or "node-with-models" in html
     assert "xai_api_key" in html or "node-with-grok" in html
     assert "mesh_pair_token" in html or "demo-pair-token" in html
+    assert "upload" in html
+    assert "selected node" in html
+    assert "8090/ui" in html
     assert "127.0.0.1" in html
     assert "policy" in html
     assert "duckdb" in html
@@ -119,6 +123,9 @@ def test_tooltip_hooks_are_accessible():
     assert 'id="verifyChainBtn"' in html
     assert 'id="downloadLink"' in html
     assert 'id="chartPreview"' in html
+    assert 'id="uploadZone"' in html
+    assert 'id="uploadBrowse"' in html
+    assert 'id="uploadFile"' in html
 
 
 def test_help_ui_is_served_on_node(tmp_path: Path, data_dir: Path):
