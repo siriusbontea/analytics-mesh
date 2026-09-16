@@ -12,6 +12,8 @@
 #
 # Keep policy.default_mode: local_only so the frontier fallback does not fire
 # unless you explicitly set a principal to allow_frontier.
+# Optional xAI Grok: configs/examples/models-with-grok.yaml (Grok as main)
+# or models-local-then-grok.yaml (local first, Grok fallback).
 # Do not put API keys here; use api_key_env.
 # Probe: GET http://127.0.0.1:11434/v1/models
 main:

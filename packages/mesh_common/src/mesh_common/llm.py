@@ -34,6 +34,10 @@ class LlmProviderConfig(BaseModel):
     def is_configured(self) -> bool:
         return self.main is not None
 
+    def allows_frontier(self, principal_mode: str | None = None) -> bool:
+        """Frontier slots are eligible if the models file or the principal opts in."""
+        return self.policy.default_mode == "allow_frontier" or principal_mode == "allow_frontier"
+
 
 class ModelProbeResult(BaseModel):
     ok: bool
@@ -49,7 +53,10 @@ def slot_headers(slot: LlmSlotConfig) -> dict[str, str]:
         return {}
     key = os.environ.get(slot.api_key_env)
     if not key:
-        return {}
+        raise RuntimeError(
+            f"{slot.api_key_env} is not set. Export that environment variable before "
+            f"calling {slot.model} at {slot.base_url}."
+        )
     return {"Authorization": f"Bearer {key}"}
 
 
@@ -122,7 +129,7 @@ class LlmNotConfigured(RuntimeError):
 
 
 class OpenAICompatibleClient:
-    """One interface for Ollama, LM Studio, vLLM, OpenRouter, and other /v1 backends."""
+    """One interface for Ollama, LM Studio, vLLM, xAI Grok, OpenRouter, and other /v1 backends."""
 
     def __init__(self, slot: LlmSlotConfig, timeout: float = 5.0) -> None:
         self.slot = slot

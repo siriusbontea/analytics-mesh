@@ -158,6 +158,35 @@ def test_local_only_blocks_frontier_assist():
     assert frontier_ok.allowed is True
 
 
+def test_models_file_allow_frontier_lifts_principal_local_only_but_not_assist_deny():
+    policy = YamlPolicy.from_yaml(RESTRICTIVE)
+    lifted = policy.authorize(
+        principal="analyst",
+        action="assist_nl2sql",
+        node_id="test-node",
+        model_provider="frontier",
+        llm_default_mode="allow_frontier",
+    )
+    assert lifted.allowed is True
+    assert lifted.model_mode == "allow_frontier"
+    still_local = policy.authorize(
+        principal="analyst",
+        action="assist_nl2sql",
+        node_id="test-node",
+        model_provider="frontier",
+    )
+    assert still_local.allowed is False
+    no_assist = policy.authorize(
+        principal="viewer",
+        action="assist_nl2sql",
+        node_id="test-node",
+        model_provider="frontier",
+        llm_default_mode="allow_frontier",
+    )
+    assert no_assist.allowed is False
+    assert "assist" in (no_assist.reason or "").lower()
+
+
 def test_allow_all_policy_when_no_file():
     policy = load_policy(None)
     decision = policy.authorize(principal="anyone", action="run_query", node_id="n")

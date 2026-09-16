@@ -518,7 +518,7 @@
         </span>
         <span class="tip-wrap">
           <button id="proposeBtn" class="secondary" type="button" aria-describedby="tip-propose">Propose SQL</button>
-          <span id="tip-propose" role="tooltip" class="tip-pop">Asks the optional local model (Ollama / LM Studio via node-with-models.yaml) to draft sandboxed SQL from your question. Nothing executes at this step — propose never auto-executes.</span>
+          <span id="tip-propose" role="tooltip" class="tip-pop">Asks the optional model (local Ollama / LM Studio, or opt-in xAI Grok via node-with-grok.yaml and XAI_API_KEY) to draft sandboxed SQL from your question. Nothing executes at this step — propose never auto-executes.</span>
         </span>
         <span class="tip-wrap">
           <button id="confirmSqlBtn" class="ghost" type="button" disabled aria-describedby="tip-confirm">Confirm and run proposed SQL</button>
@@ -607,7 +607,7 @@
           <li>Download the Parquet artifact if you want the file locally.</li>
           <li>Inspect the receipt (who, what, hash). Use <strong>Verify chain</strong> to check the node’s hash chain.</li>
         </ol>
-        <p>Analytics work with <strong>zero</strong> LLM configured. Optional NL→SQL is propose-then-confirm and never auto-executes. To enable <strong>Propose SQL</strong> locally, serve <code>configs/examples/node-with-models.yaml</code> after Ollama or LM Studio is running; default <code>node.yaml</code> stays LLM-free.</p>
+        <p>Analytics work with <strong>zero</strong> LLM configured. Optional NL→SQL is propose-then-confirm and never auto-executes. To enable <strong>Propose SQL</strong> locally, serve <code>configs/examples/node-with-models.yaml</code> after Ollama or LM Studio is running; default <code>node.yaml</code> stays LLM-free. Optional xAI Grok uses <code>node-with-grok.yaml</code> or <code>node-with-local-then-grok.yaml</code> plus <code>XAI_API_KEY</code> — a Grok or X Premium chat subscription is not API access.</p>
       </article>
       <article id="help-concepts" data-help-section="concepts">
         <h3>Concepts</h3>

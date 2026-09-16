@@ -49,6 +49,7 @@ class PolicyEngine:
         connector_ids: list[str] | None = None,
         analytic_id: str | None = None,
         model_provider: str | None = None,
+        llm_default_mode: str | None = None,
     ) -> PolicyDecision:
         raise NotImplementedError
 
@@ -65,8 +66,9 @@ class AllowAllPolicy(PolicyEngine):
         connector_ids: list[str] | None = None,
         analytic_id: str | None = None,
         model_provider: str | None = None,
+        llm_default_mode: str | None = None,
     ) -> PolicyDecision:
-        del principal, action, node_id, connector_ids, analytic_id, model_provider
+        del principal, action, node_id, connector_ids, analytic_id, model_provider, llm_default_mode
         return PolicyDecision(allowed=True, model_mode="allow_frontier")
 
 
@@ -104,6 +106,7 @@ class YamlPolicy(PolicyEngine):
         connector_ids: list[str] | None = None,
         analytic_id: str | None = None,
         model_provider: str | None = None,
+        llm_default_mode: str | None = None,
     ) -> PolicyDecision:
         lookup = principal or self.default_principal or ""
         rule = self.principals.get(lookup)
@@ -111,6 +114,7 @@ class YamlPolicy(PolicyEngine):
             if self.deny_unknown_principals:
                 return PolicyDecision(allowed=False, reason=f"unknown principal: {principal}")
             return PolicyDecision(allowed=True, model_mode="allow_frontier")
+        model_mode = _effective_model_mode(rule.model_mode, llm_default_mode)
 
         if not _allows(rule.nodes, node_id):
             return PolicyDecision(allowed=False, reason=f"principal {principal} cannot use node {node_id}")
@@ -137,7 +141,7 @@ class YamlPolicy(PolicyEngine):
         if action.startswith("assist"):
             if not rule.allow_assist:
                 return PolicyDecision(allowed=False, reason=f"principal {principal} cannot use model assist")
-            if model_provider == "frontier" and rule.model_mode == "local_only":
+            if model_provider == "frontier" and model_mode == "local_only":
                 return PolicyDecision(
                     allowed=False,
                     reason="policy is local_only; frontier model assist is not allowed",
@@ -147,7 +151,7 @@ class YamlPolicy(PolicyEngine):
             allowed=True,
             max_row_limit=rule.max_row_limit,
             query_timeout_seconds=rule.query_timeout_seconds,
-            model_mode=rule.model_mode,
+            model_mode=model_mode,
         )
 
 
@@ -155,6 +159,13 @@ def load_policy(path: Path | str | None) -> PolicyEngine:
     if path is None:
         return AllowAllPolicy()
     return YamlPolicy.from_yaml(Path(path).read_text())
+
+
+def _effective_model_mode(principal_mode: str, llm_default_mode: str | None) -> str:
+    """Frontier is allowed if the principal or the models file opts in."""
+    if llm_default_mode == "allow_frontier" or principal_mode == "allow_frontier":
+        return "allow_frontier"
+    return "local_only"
 
 
 def _allows(allowed: list[str], value: str) -> bool:

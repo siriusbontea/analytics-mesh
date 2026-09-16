@@ -124,6 +124,15 @@
 
 **Exit:** `uv run pytest` green; deep-smoke still works with demo token on localhost.
 
-## 12. Not in M11 / v1
+## 12. M12 tasks (implemented)
+
+1. Example wiring (user choice): `configs/examples/models-with-grok.yaml` + `node-with-grok.yaml` (frontier Grok as `main` / `auxiliary`, `https://api.x.ai/v1`, `api_key_env: XAI_API_KEY`, `policy.default_mode: allow_frontier`); and `models-local-then-grok.yaml` + `node-with-local-then-grok.yaml` (local Ollama placeholders, Grok in `fallback`, `allow_frontier` so fallback can fire). Default `node.yaml` stays LLM-free; `models.yaml` / `node-with-models.yaml` stay local-only (OpenRouter remains the commented alternate frontier example).
+2. Assist gating: `PolicyEngine.authorize(..., llm_default_mode=)` ORs `models.policy.default_mode` with the principal `model_mode` so Grok example files can use frontier slots while `local_only` still strips frontier when neither opts in. `allow_assist: false` still denies. Client stays on OpenAI-compatible `/v1/chat/completions` (no Responses API rewrite). Missing `api_key_env` values fail closed with a clear error.
+3. Tests: stub HTTP “Grok” proves `allow_frontier` + frontier main → `used: true`; `local_only` strips frontier / 403; local-then-fallback prefers local then Grok. No real API key in CI.
+4. Docs / UX: README “Optional Grok (xAI)” (console key, `export XAI_API_KEY`, Premium chat ≠ API); Help drawer one-liner; `scripts/check-models.sh` sends Bearer from `XAI_API_KEY` when set; `.env.example` and `deploy/systemd/mesh.env.example` empty `XAI_API_KEY=` lines.
+
+**Exit:** Both example paths loadable; `uv run pytest` green including stub frontier tests; Grok not required.
+
+## 13. Not in M12 / v1
 
 Federated learning, Hermes learning loop, messaging gateways, full OPA deployment, Axonis decision graph UI, mTLS/OAuth, classified packaging, or auto-deploy onto operator laptops.

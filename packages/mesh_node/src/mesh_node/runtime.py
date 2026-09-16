@@ -200,7 +200,7 @@ class NodeRuntime:
         if not self.llm.is_configured():
             return empty.model_dump(mode="json")
 
-        allow_frontier = decision.model_mode == "allow_frontier"
+        allow_frontier = self.llm.config.allows_frontier(decision.model_mode)
         slots = self.llm.candidate_slots("main", allow_frontier=allow_frontier)
         if not slots:
             self._deny(
@@ -309,7 +309,7 @@ class NodeRuntime:
                 message="No model configured. Analytics still work; receipt model fields stay empty.",
             ).model_dump(mode="json")
 
-        allow_frontier = decision.model_mode == "allow_frontier"
+        allow_frontier = self.llm.config.allows_frontier(decision.model_mode)
         slots = self.llm.candidate_slots("auxiliary", allow_frontier=allow_frontier)
         if not slots:
             self._deny(
@@ -448,6 +448,7 @@ class NodeRuntime:
             connector_ids=connector_ids,
             analytic_id=analytic_id,
             model_provider=model_provider,
+            llm_default_mode=self.llm.config.policy.default_mode,
         )
         if not decision.allowed:
             self._deny(
@@ -495,8 +496,11 @@ class NodeRuntime:
             action="assist_nl2sql",
             node_id=self.config.node_id,
             model_provider=provider,
+            llm_default_mode=self.llm.config.policy.default_mode,
         )
-        if not decision.allowed or (provider == "frontier" and model_mode == "local_only"):
+        if not decision.allowed:
+            return None, None
+        if provider == "frontier" and model_mode == "local_only" and decision.model_mode == "local_only":
             return None, None
         return provider, model_id
 

@@ -1,0 +1,37 @@
+# Local Ollama placeholders first; optional xAI Grok frontier fallback.
+# Analytics still work with zero LLM. Default node.yaml stays LLM-free.
+#
+# Prefer this when you want laptop models for Propose SQL, and Grok only
+# if the local endpoint is down or the tag is missing.
+#
+# Local (same placeholders as models.yaml):
+#   1. ollama serve (or LM Studio)
+#   2. ollama pull <tag> and set model: to a tag from
+#      ./scripts/check-models.sh   # GET http://127.0.0.1:11434/v1/models
+#
+# Grok fallback (opt-in; not required):
+#   1. Create a key at the xAI console. Grok/X Premium chat ≠ API access.
+#   2. export XAI_API_KEY=...
+#   3. Probe: XAI_API_KEY=... ./scripts/check-models.sh https://api.x.ai/v1
+#
+# policy.default_mode: allow_frontier is what lets the Grok fallback fire
+# when local fails. With local_only, frontier slots are stripped before
+# the first call (see models.yaml). OpenRouter remains the commented
+# alternate in models.yaml — this file uses Grok instead.
+# Do not put API keys here; use api_key_env.
+main:
+  provider: local
+  base_url: http://127.0.0.1:11434/v1
+  model: qwen2.5-coder:14b
+auxiliary:
+  provider: local
+  base_url: http://127.0.0.1:11434/v1
+  model: qwen2.5:7b
+fallback:
+  - provider: frontier
+    base_url: https://api.x.ai/v1
+    model: grok-4
+    api_key_env: XAI_API_KEY
+policy:
+  default_mode: allow_frontier
+  allow_frontier_analytics: []
