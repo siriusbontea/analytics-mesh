@@ -18,6 +18,25 @@ class UploadRejected(ValueError):
         super().__init__(message)
 
 
+def enforce_upload_size(total_bytes: int, max_bytes: int) -> None:
+    if total_bytes > max_bytes:
+        raise UploadRejected(f"file exceeds max upload size ({max_bytes} bytes)")
+
+
+async def read_upload_bytes(file, max_bytes: int, chunk_size: int = 1024 * 1024) -> bytes:
+    """Read an UploadFile-like object, rejecting once the cap is exceeded."""
+    chunks: list[bytes] = []
+    total = 0
+    while True:
+        chunk = await file.read(chunk_size)
+        if not chunk:
+            break
+        total += len(chunk)
+        enforce_upload_size(total, max_bytes)
+        chunks.append(chunk)
+    return b"".join(chunks)
+
+
 def sanitize_upload_filename(filename: str | None) -> str:
     """Return a safe basename. Reject absolute paths, traversal, and bad suffixes."""
     if filename is None or not str(filename).strip():

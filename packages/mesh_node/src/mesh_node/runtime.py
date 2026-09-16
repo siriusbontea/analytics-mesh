@@ -93,8 +93,6 @@ class NodeRuntime:
         principal: str,
         connector_id: str | None = None,
     ) -> UploadResponse:
-        from mesh_connector_local_files.connector import _read_table
-
         connector = self._local_files_connector(connector_id)
         raw_name = filename or ""
         extra = {"filename": raw_name, "connector_id": connector.id}
@@ -121,7 +119,7 @@ class NodeRuntime:
                 )
             dest.write_bytes(content)
             try:
-                _read_table(dest)
+                schema = connector.schema_for_file(dest)
             except Exception as exc:  # noqa: BLE001 — invalid payload is a user error
                 dest.unlink(missing_ok=True)
                 raise UploadRejected(f"file is not a readable table: {exc}") from exc
@@ -136,11 +134,7 @@ class NodeRuntime:
             raise UploadRejected(str(exc), receipt=receipt) from exc
 
         digest = sha256_bytes(content)
-        tables = [
-            table
-            for table in connector.discover_schema()
-            if table.source_path and Path(table.source_path).resolve() == dest.resolve()
-        ]
+        tables = [schema]
         receipt = self._upload_receipt(
             principal=principal,
             hash_value=digest,
@@ -197,11 +191,11 @@ class NodeRuntime:
             connector = self.connectors.get(connector_id)
             if connector is None:
                 raise UploadRejected(f"unknown connector: {connector_id}")
-            if not hasattr(connector, "uploads_dir"):
+            if not isinstance(connector, LocalFilesConnector):
                 raise UploadRejected(f"connector {connector_id} does not accept file uploads")
             return connector
         for connector in self.connectors.values():
-            if hasattr(connector, "uploads_dir"):
+            if isinstance(connector, LocalFilesConnector):
                 return connector
         raise UploadRejected("no local_files connector is configured")
 

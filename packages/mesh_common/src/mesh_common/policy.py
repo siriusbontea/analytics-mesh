@@ -29,6 +29,7 @@ class PolicyDecision(BaseModel):
 class PrincipalRule(BaseModel):
     allow_adhoc_sql: bool = True
     allow_assist: bool = True
+    allow_upload: bool = True
     connectors: list[str] = Field(default_factory=lambda: ["*"])
     analytics: list[str] = Field(default_factory=lambda: ["*"])
     nodes: list[str] = Field(default_factory=lambda: ["*"])
@@ -125,6 +126,9 @@ class YamlPolicy(PolicyEngine):
                     allowed=False,
                     reason=f"principal {principal} cannot use connector {connector_id}",
                 )
+
+        if action == "upload" and not rule.allow_upload:
+            return PolicyDecision(allowed=False, reason=f"principal {principal} cannot upload files")
 
         if action == "run_query" and not rule.allow_adhoc_sql:
             return PolicyDecision(allowed=False, reason=f"principal {principal} cannot run ad-hoc SQL")

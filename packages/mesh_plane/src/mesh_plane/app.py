@@ -7,6 +7,7 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import Response
 
 from mesh_common.hashing import sha256_text
+from mesh_common.uploads import DEFAULT_UPLOAD_MAX_BYTES, UploadRejected, read_upload_bytes
 from mesh_common.identity import NodeKeyPair, canonical_registration_payload
 from mesh_common.schemas import (
     AnalyticRunRequest,
@@ -147,8 +148,8 @@ def create_app(config: PlaneConfig | None = None, proxy: NodeProxy | None = None
         connector_id: str | None = Form(None),
     ) -> dict[str, object]:
         node = _require_node(store, node_id)
-        content = await file.read()
         try:
+            content = await read_upload_bytes(file, DEFAULT_UPLOAD_MAX_BYTES)
             return node_proxy.upload(
                 node.endpoint,
                 filename=file.filename or "upload",
@@ -157,6 +158,8 @@ def create_app(config: PlaneConfig | None = None, proxy: NodeProxy | None = None
                 principal=principal,
                 connector_id=connector_id,
             )
+        except UploadRejected as exc:
+            raise HTTPException(status_code=400, detail={"message": str(exc)}) from exc
         finally:
             await file.close()
 

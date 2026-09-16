@@ -671,7 +671,7 @@ uv run mesh receipt &lt;receipt_id&gt; --url http://127.0.0.1:8090 --verify-chai
       <article id="help-receipts" data-help-section="receipts">
         <h3>Receipts</h3>
         <p>Each receipt hashes its payload plus <code>prev_hash</code> (SHA-256). The first receipt links to a genesis hash of 64 zeros. <strong>Verify chain</strong> walks the owning node’s SQLite log.</p>
-        <p><strong>Recorded:</strong> principal, node, action, params (analytic id/version or SQL hash), connector versions, engine, artifact hash, status, and model fields only when assist was used.</p>
+        <p><strong>Recorded:</strong> principal, node, action, params (analytic id/version, SQL hash, or upload filename + SHA-256), connector versions, engine, artifact hash, status, and model fields only when assist was used.</p>
         <p><strong>Not recorded on the plane:</strong> source tables. The plane stores job metadata and pointers (artifact/receipt ids and URLs). The node remains the source of truth for verification.</p>
       </article>
       <article id="help-plane-vs-node" data-help-section="plane-vs-node">
@@ -749,7 +749,8 @@ uv run mesh receipt &lt;receipt_id&gt; --url http://127.0.0.1:8090 --verify-chai
     }
 
     function formatError(body, fallback) {
-      const detail = body && body.detail;
+      let detail = body && body.detail;
+      if (detail && typeof detail === "object" && detail.detail) detail = detail.detail;
       if (typeof detail === "string" && detail) return detail;
       if (detail && typeof detail === "object") {
         return detail.message || detail.error || fallback;

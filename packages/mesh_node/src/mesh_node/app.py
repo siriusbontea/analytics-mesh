@@ -17,7 +17,7 @@ from mesh_common.schemas import (
     QueryResponse,
     UploadResponse,
 )
-from mesh_common.uploads import UploadRejected
+from mesh_common.uploads import UploadRejected, read_upload_bytes
 from mesh_common.web import mount_ui
 from mesh_node.config import NodeConfig
 from mesh_node.pairing import register_with_plane
@@ -66,8 +66,8 @@ def create_app(config: NodeConfig | None = None) -> FastAPI:
         principal: str = Form("web"),
         connector_id: str | None = Form(None),
     ) -> UploadResponse:
-        content = await file.read()
         try:
+            content = await read_upload_bytes(file, runtime.config.uploads.max_bytes)
             return runtime.upload_file(
                 filename=file.filename,
                 content=content,

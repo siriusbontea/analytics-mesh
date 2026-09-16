@@ -61,7 +61,7 @@ class NodeProxy:
             timeout=self.timeout,
         )
         if response.status_code >= 400:
-            raise HTTPException(status_code=response.status_code, detail=_json_or_text(response))
+            raise HTTPException(status_code=response.status_code, detail=_unwrap_detail(response))
         return response.json()
 
     def models_status(self, endpoint: str, probe: bool = False) -> dict[str, object]:
@@ -108,6 +108,13 @@ class NodeProxy:
             raise HTTPException(status_code=404, detail="artifact not found")
         response.raise_for_status()
         return response
+
+
+def _unwrap_detail(response: httpx.Response) -> object:
+    detail = _json_or_text(response)
+    if isinstance(detail, dict) and "detail" in detail:
+        return detail["detail"]
+    return detail
 
 
 def _json_or_text(response: httpx.Response) -> object:

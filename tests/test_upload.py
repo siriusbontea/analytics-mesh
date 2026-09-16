@@ -268,9 +268,31 @@ def test_plane_proxies_upload_and_does_not_store_source(tmp_path: Path, sales_cs
         assert "kiwi" in names
         assert unique.encode() not in Path(plane_cfg.store_path).read_bytes()
         assert b"item,qty" not in Path(plane_cfg.store_path).read_bytes()
+
+        rejected = plane.post(
+            "/nodes/node-b/upload",
+            files={"file": ("notes.txt", b"hello", "text/plain")},
+            data={"principal": "tester"},
+        )
+        assert rejected.status_code == 400
+        detail = rejected.json()["detail"]
+        message = detail["message"] if isinstance(detail, dict) else str(detail)
+        assert "unsupported" in message.lower()
     finally:
         server.should_exit = True
         thread.join(timeout=5)
+
+
+def test_upload_survives_unreadable_sibling(tmp_path: Path, data_dir: Path):
+    (data_dir / "broken.json").write_text("{not-json", encoding="utf-8")
+    client = TestClient(create_app(_node_config(tmp_path, data_dir)))
+    response = client.post(
+        "/upload",
+        files={"file": ("ok.csv", TINY_CSV.encode(), "text/csv")},
+        data={"principal": "tester"},
+    )
+    assert response.status_code == 200, response.text
+    assert "ok" in {table["name"] for table in response.json()["tables"]}
 
 
 def test_plane_upload_unknown_node(tmp_path: Path):

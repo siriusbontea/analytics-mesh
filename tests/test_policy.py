@@ -78,6 +78,33 @@ def test_default_principal_does_not_alias_unknown_names():
     assert allowed.allowed is True
 
 
+def test_allow_upload_defaults_true_and_can_deny():
+    policy = YamlPolicy.from_yaml(RESTRICTIVE)
+    allowed = policy.authorize(
+        principal="analyst",
+        action="upload",
+        node_id="test-node",
+        connector_ids=["local_files"],
+    )
+    assert allowed.allowed is True
+    denied = YamlPolicy.from_yaml(
+        RESTRICTIVE
+        + """
+  blocked:
+    allow_upload: false
+    connectors: ["local_files"]
+    nodes: ["test-node"]
+"""
+    ).authorize(
+        principal="blocked",
+        action="upload",
+        node_id="test-node",
+        connector_ids=["local_files"],
+    )
+    assert denied.allowed is False
+    assert "upload" in (denied.reason or "").lower()
+
+
 def test_viewer_cannot_run_adhoc_sql():
     policy = YamlPolicy.from_yaml(RESTRICTIVE)
     decision = policy.authorize(
