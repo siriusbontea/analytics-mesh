@@ -16,9 +16,13 @@ def test_help_drawer_open_and_dismiss(page: Page, live_node: str) -> None:
 
     help_btn.click()
     expect(drawer).to_be_visible()
-    expect(page.locator("#help-getting-started")).to_contain_text("Getting started")
-    expect(page.locator("#help-concepts")).to_contain_text("Concepts")
-    expect(page.locator('[data-help-nav="getting-started"]')).to_be_visible()
+    getting_started = page.locator("#help-getting-started")
+    expect(getting_started).to_be_visible()
+    expect(getting_started).to_contain_text("Getting started")
+    page.locator('[data-help-nav="concepts"]').click()
+    concepts = page.locator("#help-concepts")
+    expect(concepts).to_be_visible()
+    expect(concepts).to_contain_text("Concepts")
 
     page.locator("#helpClose").click()
     expect(drawer).to_be_hidden()

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import signal
 import socket
 import subprocess
 import sys
@@ -10,6 +11,7 @@ from pathlib import Path
 
 import httpx
 import pytest
+import yaml
 
 REPO = Path(__file__).resolve().parents[2]
 
@@ -26,7 +28,7 @@ def _wait_healthy(url: str, timeout: float = 30.0) -> None:
     while time.monotonic() < deadline:
         try:
             response = httpx.get(f"{url}/health", timeout=1.0)
-            if response.status_code < 500:
+            if response.status_code == 200 and response.json().get("status") == "ok":
                 return
         except httpx.HTTPError as exc:
             last_error = exc
@@ -50,27 +52,30 @@ def live_node(tmp_path_factory: pytest.TempPathFactory) -> Iterator[str]:
     port = _free_port()
     config_path = tmp_dir / "node.yaml"
     config_path.write_text(
-        "\n".join(
-            [
-                "node_id: ui-test-node",
-                f"artifact_dir: {tmp_dir / 'artifacts'}",
-                f"receipt_db: {tmp_dir / 'receipts.sqlite'}",
-                f"identity_key_path: {tmp_dir / 'identity.pem'}",
-                "listen_host: 127.0.0.1",
-                f"listen_port: {port}",
-                "connectors:",
-                "  - id: local_files",
-                "    type: local_files",
-                f"    root: {REPO / 'data' / 'samples'}",
-                "    labels: [personal]",
-                f"analytics_dir: {REPO / 'analytics'}",
-                f"policy_path: {REPO / 'configs' / 'examples' / 'policy.yaml'}",
-                "limits:",
-                "  default_row_limit: 10000",
-                "  max_row_limit: 100000",
-                "  query_timeout_seconds: 30",
-                "",
-            ]
+        yaml.safe_dump(
+            {
+                "node_id": "ui-test-node",
+                "artifact_dir": str(tmp_dir / "artifacts"),
+                "receipt_db": str(tmp_dir / "receipts.sqlite"),
+                "identity_key_path": str(tmp_dir / "identity.pem"),
+                "listen_host": "127.0.0.1",
+                "listen_port": port,
+                "connectors": [
+                    {
+                        "id": "local_files",
+                        "type": "local_files",
+                        "root": str(REPO / "data" / "samples"),
+                        "labels": ["personal"],
+                    }
+                ],
+                "analytics_dir": str(REPO / "analytics"),
+                "policy_path": str(REPO / "configs" / "examples" / "policy.yaml"),
+                "limits": {
+                    "default_row_limit": 10000,
+                    "max_row_limit": 100000,
+                    "query_timeout_seconds": 30,
+                },
+            }
         ),
         encoding="utf-8",
     )
@@ -82,6 +87,7 @@ def live_node(tmp_path_factory: pytest.TempPathFactory) -> Iterator[str]:
         stdout=log_file,
         stderr=subprocess.STDOUT,
         env={**os.environ, "PYTHONUNBUFFERED": "1"},
+        start_new_session=True,
     )
     base_url = f"http://127.0.0.1:{port}"
     try:
@@ -94,10 +100,16 @@ def live_node(tmp_path_factory: pytest.TempPathFactory) -> Iterator[str]:
             raise
         yield base_url
     finally:
-        proc.terminate()
+        try:
+            os.killpg(proc.pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
         try:
             proc.wait(timeout=10)
         except subprocess.TimeoutExpired:
-            proc.kill()
+            try:
+                os.killpg(proc.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
             proc.wait(timeout=5)
         log_file.close()

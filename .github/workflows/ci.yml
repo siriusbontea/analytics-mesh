@@ -40,10 +40,19 @@ jobs:
         with:
           path: ~/.cache/ms-playwright
           key: playwright-chromium-${{ runner.os }}-${{ hashFiles('uv.lock') }}
+          restore-keys: |
+            playwright-chromium-${{ runner.os }}-
       - name: Install Playwright Chromium
         run: uv run playwright install --with-deps chromium
       - name: Run browser UI tests
-        run: uv run pytest -m ui --browser chromium
+        run: uv run pytest -m ui --browser chromium --screenshot only-on-failure --tracing retain-on-failure
+      - name: Upload Playwright artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-ui
+          path: test-results/
+          if-no-files-found: ignore
 
   deep-smoke:
     name: deep-smoke (optional)
