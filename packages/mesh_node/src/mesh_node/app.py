@@ -8,6 +8,7 @@ import httpx
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 
+from mesh_common.llm import llm_health_fields
 from mesh_common.policy import PolicyDenied
 from mesh_common.schemas import (
     AnalyticRunRequest,
@@ -47,14 +48,15 @@ def create_app(config: NodeConfig | None = None) -> FastAPI:
 
     @app.get("/health")
     def health() -> dict[str, object]:
-        return {
+        body = {
             "status": "ok",
             "node_id": cfg.node_id,
             "version": __version__,
             "public_key": runtime.identity.public_key_hex,
-            "llm_configured": cfg.models.is_configured(),
             "engines": sorted(runtime.engines),
         }
+        body.update(llm_health_fields(cfg.models))
+        return body
 
     @app.get("/connectors")
     def list_connectors() -> dict[str, object]:

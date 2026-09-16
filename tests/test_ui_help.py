@@ -14,6 +14,7 @@ UI_PATH = REPO / "packages/mesh_common/src/mesh_common/static/ui.html"
 
 HELP_SECTION_IDS = (
     "getting-started",
+    "ask",
     "concepts",
     "cli-vs-ui",
     "receipts",
@@ -29,8 +30,10 @@ TIP_IDS = (
     "tip-kind",
     "tip-analytic",
     "tip-sql",
-    "tip-propose",
+    "tip-ask",
     "tip-confirm",
+    "tip-proposed-sql",
+    "tip-model-chip",
     "tip-explain",
     "tip-run",
     "tip-connectors-refresh",
@@ -91,6 +94,10 @@ def test_help_content_matches_product_behavior():
     assert "zero" in html and "llm" in html
     assert "ollama" in html or "node-with-models" in html
     assert "xai_api_key" in html or "node-with-grok" in html
+    assert "node-with-local-then-grok" in html
+    assert "attach" in html
+    assert "policy-blocked" in html or "disallowed" in html
+    assert "api.x.ai" in html
     assert "mesh_pair_token" in html or "demo-pair-token" in html
     assert "upload" in html
     assert "selected node" in html
@@ -113,8 +120,13 @@ def test_tooltip_hooks_are_accessible():
     assert 'id="kind"' in html
     assert 'id="analytic"' in html
     assert 'id="sql"' in html
-    assert 'id="proposeBtn"' in html
+    assert 'id="askBtn"' in html
     assert 'id="confirmSqlBtn"' in html
+    assert 'id="proposedSqlView"' in html
+    assert 'id="modelChip"' in html
+    assert 'id="askWrap"' in html
+    assert 'id="advancedWrap"' in html
+    assert 'id="askEmpty"' in html
     assert 'id="assistBtn"' in html
     assert 'id="runBtn"' in html
     assert 'id="refreshConnectors"' in html

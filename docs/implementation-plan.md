@@ -143,6 +143,17 @@
 
 **Exit:** `uv run pytest` and `uv run pytest -m ui` green; documented manual path (plane + node → drop CSV → table → analytic/SQL).
 
-## 14. Not in M13 / v1
+## 14. M14 tasks (implemented)
 
-Federated learning, Hermes learning loop, messaging gateways, full OPA deployment, Axonis decision graph UI, dragging tables into a visual query canvas, uploading to the plane as a data lake, mTLS/OAuth, classified packaging, or auto-deploy onto operator laptops.
+1. Ask-first `/ui`: default Run kind is **Ask (NL)**. Question → existing `/assist/nl2sql` (propose only) or a clear registered-analytic match → show proposed SQL or analytic → **Confirm** required. Never auto-execute. **Edit SQL** optional before Confirm.
+2. Analytic picker + raw SQL remain under **Advanced** and stay fully usable with zero LLM. Ask with no model and no match shows a configure-models empty state (`node-with-models.yaml`, `node-with-grok.yaml`, `node-with-local-then-grok.yaml`).
+3. Clear analytic match (question contains the id as a phrase, e.g. “top products” → `top_products`) offers that analytic as the Confirm target (`/analytics/run`). Helper: `match_registered_analytic`. No new assist endpoint.
+4. Thin health/models fields: `llm_kind` / `llm_label` (`none`/`Local`/`Grok`) via `llm_health_fields`. Topbar chip Local / Grok / None. Hermes-style Grok stays `https://api.x.ai/v1` + `XAI_API_KEY` (do not scrape consumer Grok chat).
+5. Help **Ask** section + tooltips on Ask / Confirm / proposed SQL. Sandbox copy = policy-blocked SQL (`ATTACH`, writes, disallowed statements), not a moral label. Confirm is for trust.
+6. Tests: pytest for match helper + health fields; Playwright Ask default, analytic-match Confirm, empty state, stubbed nl2sql → Confirm. `ui.html` stays a single file.
+
+**Exit:** `uv run pytest` and `uv run pytest -m ui` green; PR against main (not merged). Manual: plane + node-with-grok (or local models) → Ask → see SQL/analytic → Confirm → preview/chart/receipt.
+
+## 15. Not in M14 / v1
+
+Federated learning, Hermes learning loop, messaging gateways, full OPA deployment, Axonis decision graph UI, dragging tables into a visual query canvas, uploading to the plane as a data lake, mTLS/OAuth, classified packaging, auto-deploy onto operator laptops, a full chat agent with tools beyond nl2sql/explain, or auto-run SQL.

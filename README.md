@@ -2,7 +2,7 @@
 
 Query-first local analytics. Point a node at a directory of CSV, Parquet, or JSON files, run sandboxed DuckDB SQL, and get a Parquet artifact plus a hash-chained receipt. No LLM is required.
 
-M1 is a **single node** on one machine. M2 adds a thin **control plane** that registers nodes and routes `run_query` to a target node. The plane stores job metadata and pointers only — not source tables. M3 adds a **versioned analytic registry**, a **minimal web UI**, and optional **OpenAI-compatible model config**. M4 adds **YAML policy allowlists**, **artifact retention/size caps**, a **read-only Postgres connector**, and optional **NL→SQL assist** that never auto-executes. M5 completes v1: an **analytics-only MCP adapter**, an optional **Polars engine**, and a **main → fallback** assist chain recorded on receipts. M6 polishes that same **single-file `/ui`**: dark/light theme, connectors and plane jobs, receipt verify/copy, an editable principal, and a light SVG bar chart on suitable previews. M7 adds an in-page **Help drawer** and accessible **tooltips** so you can learn the tool without leaving `/ui`. M8 fixes **`mesh receipt --verify-chain` against a direct node**, adds **GitHub Actions CI**, and ships **`scripts/deep-smoke.sh`**. M9 adds **Playwright browser tests** for `/ui` (Help drawer + a successful `top_products` run) in a separate CI job. M10 makes optional **Propose SQL** usable against a local OpenAI-compatible endpoint (Ollama / LM Studio) via `configs/examples/node-with-models.yaml`. M11 hardens **pairing tokens**, **listen/Tailscale posture**, and **systemd units** for real machines without changing localhost demo defaults. M12 adds optional **xAI Grok** as an OpenAI-compatible frontier provider (`node-with-grok.yaml` or local-then-Grok fallback). M13 makes the **plane `/ui` the product entry** and adds **CSV/Parquet/JSON upload** onto the selected node (plane proxies; files land under that node’s `local_files` `uploads/`). Analytics still work with **zero** LLM configured.
+M1 is a **single node** on one machine. M2 adds a thin **control plane** that registers nodes and routes `run_query` to a target node. The plane stores job metadata and pointers only — not source tables. M3 adds a **versioned analytic registry**, a **minimal web UI**, and optional **OpenAI-compatible model config**. M4 adds **YAML policy allowlists**, **artifact retention/size caps**, a **read-only Postgres connector**, and optional **NL→SQL assist** that never auto-executes. M5 completes v1: an **analytics-only MCP adapter**, an optional **Polars engine**, and a **main → fallback** assist chain recorded on receipts. M6 polishes that same **single-file `/ui`**: dark/light theme, connectors and plane jobs, receipt verify/copy, an editable principal, and a light SVG bar chart on suitable previews. M7 adds an in-page **Help drawer** and accessible **tooltips** so you can learn the tool without leaving `/ui`. M8 fixes **`mesh receipt --verify-chain` against a direct node**, adds **GitHub Actions CI**, and ships **`scripts/deep-smoke.sh`**. M9 adds **Playwright browser tests** for `/ui` (Help drawer + a successful `top_products` run) in a separate CI job. M10 makes optional **Propose SQL** usable against a local OpenAI-compatible endpoint (Ollama / LM Studio) via `configs/examples/node-with-models.yaml`. M11 hardens **pairing tokens**, **listen/Tailscale posture**, and **systemd units** for real machines without changing localhost demo defaults. M12 adds optional **xAI Grok** as an OpenAI-compatible frontier provider (`node-with-grok.yaml` or local-then-Grok fallback). M13 makes the **plane `/ui` the product entry** and adds **CSV/Parquet/JSON upload** onto the selected node (plane proxies; files land under that node’s `local_files` `uploads/`). M14 makes `/ui` **Ask-first**: natural language proposes a registered analytic or SQL; **Confirm** is required before any run. Analytics still work with **zero** LLM configured.
 
 ## Requirements
 
@@ -24,7 +24,7 @@ In another terminal:
 uv run mesh serve --config configs/examples/node.yaml
 ```
 
-Open **[http://127.0.0.1:8090/ui](http://127.0.0.1:8090/ui)**. Pick the registered node (`local-dev`), drop a CSV onto the connectors panel (or **Browse**), then run `top_products` or ad-hoc SQL. Files land on that node under `data/samples/uploads/`; the plane never stores source tables.
+Open **[http://127.0.0.1:8090/ui](http://127.0.0.1:8090/ui)**. Pick the registered node (`local-dev`), drop a CSV onto the connectors panel (or **Browse**), then **Ask** a question (or open **Advanced** for `top_products` / SQL). Files land on that node under `data/samples/uploads/`; the plane never stores source tables.
 
 CLI against the same plane:
 
@@ -192,7 +192,7 @@ tests/                    unit/API; tests/ui/ is Playwright (`pytest -m ui`)
 | Method | Path | Purpose |
 | --- | --- | --- |
 | GET | `/` or `/ui` | Browser UI (this node) |
-| GET | `/health` | Node status (includes `public_key`, `llm_configured`) |
+| GET | `/health` | Node status (includes `public_key`, `llm_configured`, `llm_kind`, `llm_label`) |
 | GET | `/connectors` | Connector ids, versions, discovered tables |
 | GET | `/analytics` | Registered analytics (id, semver, engine, SQL) |
 | POST | `/analytics/run` | Run by `analytic_id` (optional `version`) |
@@ -265,7 +265,7 @@ The same static page is served from **both** the node and the plane:
 | Plane (`mesh plane` / `mesh demo`) | http://127.0.0.1:8090/ui | **Product entry.** Pick a registered node, upload files, then run |
 | Node (`mesh serve`) | http://127.0.0.1:8080/ui | Operator / debug; talks to that node only |
 
-Pick an analytic or paste SQL, view the result table, download the artifact, and read the receipt. There is no decision-case workflow. Use **Propose SQL** then **Confirm and run proposed SQL** for NL→SQL; the propose step never executes. M6 keeps this a single static file (no frontend build): Run / Result / Receipt sit as equal panels, with connectors, plane jobs, theme, and receipt helpers described below. M7 adds the **Help** drawer (`#help` / `#help=receipts`) and hover/focus tooltips on the major controls. M13 adds a drop zone / Browse control on the connectors panel; files upload to the **selected node**.
+**Ask (NL)** is the default. Type a question → **Ask** proposes a confirm target → **Confirm** runs it. If the question clearly matches a registered analytic (for example “top products” when `top_products` exists), Confirm runs that analytic. Otherwise Ask calls `POST /assist/nl2sql` and shows the proposed SQL; **Edit SQL** is optional before Confirm. Ask never auto-executes. Registered analytics and raw SQL stay under **Advanced** and work with zero LLM. The topbar chip is **Local** / **Grok** / **None** from the node’s `/health` (`llm_kind` / `llm_label`) or `/models`. M6 keeps this a single static file (no frontend build): Ask / Result / Receipt sit as equal panels. M7 adds the **Help** drawer (`#help` / `#help=ask`). M13 adds a drop zone / Browse control on the connectors panel; files upload to the **selected node**.
 
 ### Models (optional)
 
@@ -299,7 +299,7 @@ Analytics stay useful with no model. To make **Propose SQL** talk to a laptop en
    uv run mesh assist --question "Which product sold the most?" --confirm-run
    ```
 
-   Or open [http://127.0.0.1:8080/ui](http://127.0.0.1:8080/ui) and use **Propose SQL**, review the draft, then **Confirm and run proposed SQL**.
+   Or open the plane UI and use **Ask**, review the draft, then **Confirm**. Direct node `/ui` works the same for operators.
 
 If Ollama is down, assist says the local endpoint is unreachable. If the tag is not pulled, it says the model was not found and to `ollama pull` or change `model:`. Paid OpenRouter keys are not required for this path.
 
@@ -331,7 +331,7 @@ Grok is an optional OpenAI-compatible frontier provider. Analytics still run wit
    # or: curl -sS -H "Authorization: Bearer $XAI_API_KEY" https://api.x.ai/v1/models
    ```
 
-Example `model:` is `grok-4` (chat-completions-capable; alias to the current Grok 4 line). Named ids such as `grok-4.6` / `grok-4.5` also work — set `model:` to an id your key can list. The mesh client still uses `/v1/chat/completions`; do not put keys in YAML (`api_key_env: XAI_API_KEY`). `models.yaml` / `node-with-models.yaml` stay local-only (OpenRouter remains a commented alternate frontier example there). Propose SQL still never auto-executes.
+Example `model:` is `grok-4` (chat-completions-capable; alias to the current Grok 4 line). Named ids such as `grok-4.6` / `grok-4.5` also work — set `model:` to an id your key can list. Hermes-style Grok uses OpenAI-compatible `https://api.x.ai/v1` + `XAI_API_KEY` (subscription credits, if any, still use that key). Do not scrape consumer Grok chat — that is unsupported. Do not put keys in YAML (`api_key_env: XAI_API_KEY`). `models.yaml` / `node-with-models.yaml` stay local-only (OpenRouter remains a commented alternate frontier example there). Ask still never auto-executes.
 
 ## M4 — policy, artifacts, Postgres, NL→SQL
 
@@ -386,7 +386,7 @@ uv run mesh assist --question "Which product sold the most?"
 uv run mesh assist --question "Which product sold the most?" --confirm-run
 ```
 
-`--confirm-run` is required to execute. The web UI has the same two-step **Propose SQL** / **Confirm and run proposed SQL** buttons. `/assist/nl2sql` never calls the engine. When a confirmed run uses a proposal, the query receipt records `model_provider` / `model_id`. Explain assist prefers the auxiliary (local) slot and a capped preview.
+`--confirm-run` is required to execute. The web UI is the same two-step **Ask** / **Confirm** flow. `/assist/nl2sql` never calls the engine. When a confirmed run uses a proposal, the query receipt records `model_provider` / `model_id`. Explain assist prefers the auxiliary (local) slot and a capped preview.
 
 If no model is configured, assist returns a clear error and analytics still work.
 
@@ -420,6 +420,7 @@ M1–M5 together are v1: query where the data lives, return an artifact plus a v
 | M11 | Pair-token env override, listen/Tailscale docs, systemd + real data dirs |
 | M12 | Optional xAI Grok frontier (`node-with-grok` / local-then-Grok) |
 | M13 | Plane-first product UI + node file upload (CSV/Parquet/JSON) |
+| M14 | Ask-first `/ui` (NL propose → Confirm; Advanced analytic/SQL) |
 
 ### MCP adapter (analytics toolset only)
 
@@ -619,6 +620,20 @@ The shared `ui.html` is still one static file (no React, no analysis canvas).
 - Files land on the **node** under that connector’s `local_files` root in `uploads/` (or `uploads_path` if set and still under the root). The plane `POST /nodes/{id}/upload` proxies the multipart body and stores nothing.
 - A hash-chained receipt (`action: upload`) records principal, node, filename, SHA-256, and status. After success the UI refreshes connectors and shows the new table name(s).
 - Manual check: start plane + node(s), open the plane UI, drop a CSV, see the table, run an analytic or SQL. `pytest` is the gate; Playwright covers the drop zone / Browse control and a small CSV happy path.
+
+## M14 — Ask-first UI
+
+The shared `ui.html` is still one static file. **Ask (NL)** is the default; SQL is inspect/edit, never the blank landing state.
+
+- Type a question → **Ask**. A *clear* registry match (question contains the analytic id as a phrase, e.g. “top products” → `top_products`) is offered as the Confirm target and runs `/analytics/run`. No new assist endpoint.
+- Otherwise Ask calls existing `POST /assist/nl2sql` (propose only), shows **Proposed SQL**, optional **Edit SQL**, then **Confirm** runs `/query`. Ask never auto-executes.
+- **Advanced** keeps the analytic picker and raw SQL. Both work with zero LLM.
+- With no model and no analytic match, Ask shows a configure-models empty state pointing at `node-with-models.yaml`, `node-with-grok.yaml`, and `node-with-local-then-grok.yaml`.
+- Topbar chip: **Local** / **Grok** / **None** from node `/health` (`llm_kind`, `llm_label`) or `/models`. Hermes-style Grok is OpenAI-compatible `https://api.x.ai/v1` + `XAI_API_KEY` — a consumer Grok/X Premium chat subscription is not API access and is not scraped.
+- Help **Ask** section: Confirm is for trust; “sandbox” / “risky” means policy-blocked SQL (`ATTACH`, writes, disallowed statements).
+- Playwright covers Ask-as-default, analytic-match Confirm, configure-models empty state, and a stubbed nl2sql → Confirm path.
+
+Manual check: serve plane + `node-with-grok.yaml` (or local models), open the plane UI, Ask about uploaded/sample tables, see SQL (or a matched analytic), Confirm, get preview/chart/receipt.
 
 ## Docs
 

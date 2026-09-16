@@ -13,6 +13,7 @@ from mesh_common.llm import (
     OpenAICompatibleClient,
     assist_attribution,
     describe_llm_error,
+    llm_health_fields,
     load_llm_config,
     probe_models,
 )
@@ -22,6 +23,28 @@ from mesh_common.schemas import Receipt
 def test_empty_config_is_not_configured():
     cfg = LlmProviderConfig()
     assert cfg.is_configured() is False
+    fields = llm_health_fields(cfg)
+    assert fields["llm_configured"] is False
+    assert fields["llm_kind"] == "none"
+    assert fields["llm_label"] == "None"
+
+
+def test_llm_health_fields_local_and_grok():
+    local = LlmProviderConfig(
+        main=LlmSlotConfig(provider="local", base_url="http://127.0.0.1:11434/v1", model="qwen2.5-coder:14b")
+    )
+    local_fields = llm_health_fields(local)
+    assert local_fields["llm_configured"] is True
+    assert local_fields["llm_kind"] == "local"
+    assert local_fields["llm_label"] == "Local"
+    assert local_fields["llm_model"] == "qwen2.5-coder:14b"
+
+    grok = load_llm_config(Path("configs/examples/models-with-grok.yaml"))
+    grok_fields = llm_health_fields(grok)
+    assert grok_fields["llm_configured"] is True
+    assert grok_fields["llm_kind"] == "frontier"
+    assert grok_fields["llm_label"] == "Grok"
+    assert grok_fields["llm_model"] == "grok-4"
 
 
 def test_models_yaml_shape_loads():

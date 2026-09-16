@@ -12,13 +12,14 @@ from mesh_common.llm import (
     assist_attribution,
     describe_llm_error,
     extract_sql,
+    llm_health_fields,
     load_llm_config,
     probe_models,
 )
 from mesh_common.policy import AllowAllPolicy, PolicyDecision, PolicyDenied, PolicyEngine, YamlPolicy, load_policy
 from mesh_common.receipts import GENESIS_HASH, ReceiptStore
 from mesh_common.secrets import DEFAULT_PAIR_TOKEN_ENV, resolve_pair_token
-from mesh_common.registry import AnalyticRegistry, AnalyticSpecError
+from mesh_common.registry import AnalyticRegistry, AnalyticSpecError, match_registered_analytic
 from mesh_common.schemas import (
     AnalyticRunRequest,
     AnalyticSpec,
@@ -96,8 +97,10 @@ __all__ = [
     "assist_attribution",
     "describe_llm_error",
     "extract_sql",
+    "llm_health_fields",
     "load_llm_config",
     "load_policy",
+    "match_registered_analytic",
     "probe_models",
     "load_or_create_keypair",
     "resolve_pair_token",

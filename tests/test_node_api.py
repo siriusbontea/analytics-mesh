@@ -6,6 +6,7 @@ import pyarrow.parquet as pq
 from fastapi.testclient import TestClient
 
 from mesh_common.hashing import sha256_file
+from mesh_common.llm import LlmProviderConfig, LlmSlotConfig
 from mesh_common.receipts import ReceiptStore
 from mesh_node.app import create_app
 from mesh_node.config import ConnectorConfig, LimitsConfig, NodeConfig
@@ -33,6 +34,29 @@ def test_health(tmp_path: Path, data_dir: Path):
     assert body["node_id"] == "test-node"
     assert "llm_configured" in body
     assert body["llm_configured"] is False
+    assert body["llm_kind"] == "none"
+    assert body["llm_label"] == "None"
+
+
+def test_health_reports_grok_frontier_slot(tmp_path: Path, data_dir: Path):
+    cfg = _config(tmp_path, data_dir)
+    cfg = cfg.model_copy(
+        update={
+            "models": LlmProviderConfig(
+                main=LlmSlotConfig(
+                    provider="frontier",
+                    base_url="https://api.x.ai/v1",
+                    model="grok-4",
+                    api_key_env="XAI_API_KEY",
+                )
+            )
+        }
+    )
+    body = TestClient(create_app(cfg)).get("/health").json()
+    assert body["llm_configured"] is True
+    assert body["llm_kind"] == "frontier"
+    assert body["llm_label"] == "Grok"
+    assert body["llm_model"] == "grok-4"
 
 
 def test_list_connectors(tmp_path: Path, data_dir: Path):
@@ -173,6 +197,8 @@ def test_models_endpoint_without_llm(tmp_path: Path, data_dir: Path):
     body = response.json()
     assert body["configured"] is False
     assert body["main"] is None
+    assert body["llm_kind"] == "none"
+    assert body["llm_label"] == "None"
 
 
 def test_assist_stub_does_not_require_model(tmp_path: Path, data_dir: Path):
@@ -194,7 +220,10 @@ def test_ui_is_served(tmp_path: Path, data_dir: Path):
         html = response.text
         assert "Analytics Mesh" in html
         assert "analytic" in html.lower()
-        assert "confirm and run proposed sql" in html.lower()
+        assert 'id="askBtn"' in html
+        assert 'id="confirmSqlBtn"' in html
+        assert "confirm" in html.lower()
+        assert "ask (nl)" in html.lower() or 'id="askWrap"' in html
         assert 'id="principal"' in html
         assert 'id="themeToggle"' in html
         assert 'id="helpBtn"' in html

@@ -12,7 +12,7 @@ import pyarrow as pa
 from mesh_common.artifacts import ArtifactStore, ArtifactTooLarge
 from mesh_common.hashing import sha256_bytes, sha256_text
 from mesh_common.identity import generate_keypair, load_or_create_keypair
-from mesh_common.llm import LlmClient, describe_llm_error, extract_sql
+from mesh_common.llm import LlmClient, describe_llm_error, extract_sql, llm_health_fields
 from mesh_common.policy import PolicyDenied, PolicyEngine, load_policy
 from mesh_common.preview import preview_parquet
 from mesh_common.receipts import ReceiptStore
@@ -531,6 +531,7 @@ class NodeRuntime:
             "policy": cfg.policy.model_dump(mode="json"),
             "probe": None,
         }
+        body.update(llm_health_fields(cfg))
         if probe and cfg.main is not None:
             probed = self.llm.probe("main")
             body["probe"] = probed.model_dump(mode="json") if probed is not None else None
