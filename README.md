@@ -341,7 +341,7 @@ principals:
     model_mode: local_only # or allow_frontier
 ```
 
-`model_mode: local_only` blocks frontier NL→SQL / explain. `allow_frontier` may send schema + question + a capped preview only — never full source tables. Denied `run_*` / assist calls return HTTP 403 and append a failed receipt.
+`model_mode: local_only` blocks frontier NL→SQL / explain unless the models file also sets `policy.default_mode: allow_frontier` (the Grok example opt-in). A principal with `allow_assist: false` is still denied. `allow_frontier` may send schema + question + a capped preview only — never full source tables. Denied `run_*` / assist calls return HTTP 403 and append a failed receipt.
 
 ### Artifact store
 

@@ -75,8 +75,13 @@ def test_models_yaml_allows_frontier_when_default_mode_is_allow_frontier():
     assert grok.allows_frontier("allow_frontier") is True
 
 
-def test_nl2sql_allow_frontier_grok_main_is_used(tmp_path: Path, data_dir: Path):
-    with _openai_compat_server(sql="SELECT product FROM sales", available_models=["grok-4"]) as base_url:
+def test_nl2sql_allow_frontier_grok_main_is_used(tmp_path: Path, data_dir: Path, monkeypatch):
+    monkeypatch.setenv("XAI_API_KEY", "test-xai-key")
+    with _openai_compat_server(
+        sql="SELECT product FROM sales",
+        available_models=["grok-4"],
+        require_bearer="test-xai-key",
+    ) as base_url:
         models = _frontier_grok(base_url, default_mode="allow_frontier")
         client = TestClient(create_app(_cfg(tmp_path, data_dir, models, policy_path=_local_only_policy(tmp_path))))
         before = list((tmp_path / "artifacts").glob("*.parquet")) if (tmp_path / "artifacts").exists() else []
@@ -102,11 +107,12 @@ def test_nl2sql_local_only_strips_frontier_grok(tmp_path: Path, data_dir: Path):
         assert response.status_code == 403
         detail = response.json()["detail"]
         reason = str(detail.get("message") or detail).lower()
-        assert "local" in reason or "frontier" in reason
+        assert "local_only" in reason or "local model" in reason or "frontier" in reason
         assert "leaked" not in str(detail).lower()
 
 
-def test_nl2sql_local_then_frontier_prefers_local(tmp_path: Path, data_dir: Path):
+def test_nl2sql_local_then_frontier_prefers_local(tmp_path: Path, data_dir: Path, monkeypatch):
+    monkeypatch.setenv("XAI_API_KEY", "test-xai-key")
     with (
         _openai_compat_server(sql="SELECT product FROM sales", available_models=["local-sql"]) as local_url,
         _openai_compat_server(sql="SELECT 'frontier' AS leaked", available_models=["grok-4"]) as grok_url,
@@ -125,7 +131,9 @@ def test_nl2sql_local_then_frontier_prefers_local(tmp_path: Path, data_dir: Path
             policy=LlmPolicyConfig(default_mode="allow_frontier"),
         )
         client = TestClient(create_app(_cfg(tmp_path, data_dir, models, policy_path=_local_only_policy(tmp_path))))
-        body = client.post("/assist/nl2sql", json={"question": "list products", "principal": "local"}).json()
+        response = client.post("/assist/nl2sql", json={"question": "list products", "principal": "local"})
+        assert response.status_code == 200
+        body = response.json()
         assert body["used"] is True
         assert body["model_provider"] == "local"
         assert body["model_id"] == "local-sql"
@@ -134,8 +142,13 @@ def test_nl2sql_local_then_frontier_prefers_local(tmp_path: Path, data_dir: Path
         assert "leaked" not in body["sql"]
 
 
-def test_nl2sql_local_then_frontier_falls_back_to_grok(tmp_path: Path, data_dir: Path):
-    with _openai_compat_server(sql="SELECT product FROM sales", available_models=["grok-4"]) as grok_url:
+def test_nl2sql_local_then_frontier_falls_back_to_grok(tmp_path: Path, data_dir: Path, monkeypatch):
+    monkeypatch.setenv("XAI_API_KEY", "test-xai-key")
+    with _openai_compat_server(
+        sql="SELECT product FROM sales",
+        available_models=["grok-4"],
+        require_bearer="test-xai-key",
+    ) as grok_url:
         models = LlmProviderConfig(
             main=LlmSlotConfig(provider="local", base_url="http://127.0.0.1:9/v1", model="missing-local"),
             fallback=[
@@ -149,7 +162,9 @@ def test_nl2sql_local_then_frontier_falls_back_to_grok(tmp_path: Path, data_dir:
             policy=LlmPolicyConfig(default_mode="allow_frontier"),
         )
         client = TestClient(create_app(_cfg(tmp_path, data_dir, models, policy_path=_local_only_policy(tmp_path))))
-        body = client.post("/assist/nl2sql", json={"question": "list products", "principal": "local"}).json()
+        response = client.post("/assist/nl2sql", json={"question": "list products", "principal": "local"})
+        assert response.status_code == 200
+        body = response.json()
         assert body["used"] is True
         assert body["model_provider"] == "frontier"
         assert body["model_id"] == "grok-4"
@@ -159,6 +174,75 @@ def test_nl2sql_local_then_frontier_falls_back_to_grok(tmp_path: Path, data_dir:
         assert [item["model"] for item in attempts] == ["missing-local", "grok-4"]
         assert attempts[0]["status"] == "failed"
         assert attempts[1]["status"] == "succeeded"
+
+
+def test_nl2sql_missing_xai_key_is_clear(tmp_path: Path, data_dir: Path, monkeypatch):
+    monkeypatch.delenv("XAI_API_KEY", raising=False)
+    with _openai_compat_server(sql="SELECT 1", available_models=["grok-4"], require_bearer="unused") as base_url:
+        models = _frontier_grok(base_url, default_mode="allow_frontier")
+        client = TestClient(create_app(_cfg(tmp_path, data_dir, models, policy_path=_local_only_policy(tmp_path))))
+        response = client.post("/assist/nl2sql", json={"question": "list products", "principal": "local"})
+        assert response.status_code == 200
+        body = response.json()
+        assert body["used"] is False
+        assert "XAI_API_KEY" in body["message"]
+
+
+def test_nl2sql_allow_assist_false_still_denied(tmp_path: Path, data_dir: Path, monkeypatch):
+    monkeypatch.setenv("XAI_API_KEY", "test-xai-key")
+    policy_path = tmp_path / "policy.yaml"
+    policy_path.write_text(
+        """
+deny_unknown_principals: false
+principals:
+  viewer:
+    allow_adhoc_sql: true
+    allow_assist: false
+    connectors: ["*"]
+    analytics: ["*"]
+    nodes: ["*"]
+    model_mode: local_only
+"""
+    )
+    with _openai_compat_server(sql="SELECT product FROM sales", available_models=["grok-4"]) as base_url:
+        models = _frontier_grok(base_url, default_mode="allow_frontier")
+        client = TestClient(create_app(_cfg(tmp_path, data_dir, models, policy_path=policy_path)))
+        denied = client.post("/assist/nl2sql", json={"question": "list products", "principal": "viewer"})
+        assert denied.status_code == 403
+        ran = client.post(
+            "/query",
+            json={
+                "sql": "SELECT product FROM sales",
+                "principal": "viewer",
+                "assist_model_provider": "frontier",
+                "assist_model_id": "grok-4",
+            },
+        )
+        assert ran.status_code == 200
+        assert ran.json()["receipt"]["model_provider"] is None
+        assert ran.json()["receipt"]["model_id"] is None
+
+
+def test_explain_allow_frontier_uses_grok_auxiliary(tmp_path: Path, data_dir: Path, monkeypatch):
+    monkeypatch.setenv("XAI_API_KEY", "test-xai-key")
+    with _openai_compat_server(
+        sql="Grok explained the preview.",
+        available_models=["grok-4"],
+        require_bearer="test-xai-key",
+    ) as base_url:
+        models = _frontier_grok(base_url, default_mode="allow_frontier")
+        client = TestClient(create_app(_cfg(tmp_path, data_dir, models, policy_path=_local_only_policy(tmp_path))))
+        query = client.post("/query", json={"sql": "SELECT * FROM sales", "principal": "local"}).json()
+        response = client.post(
+            "/assist/explain",
+            json={"artifact_id": query["artifact"]["artifact_id"], "principal": "local"},
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["used"] is True
+        assert body["model_provider"] == "frontier"
+        assert body["model_id"] == "grok-4"
+        assert "Grok explained" in body["explanation"]
 
 
 def test_candidate_slots_local_then_grok_order():

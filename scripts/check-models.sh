@@ -33,12 +33,14 @@ fi
 
 if ! body=$(curl "${CURL_ARGS[@]}" "${URL}" 2>&1); then
   echo "FAIL cannot reach ${URL}" >&2
-  if [[ "${BASE_URL}" == *"://127.0.0.1"* || "${BASE_URL}" == *"://localhost"* ]]; then
+  if [[ "${BASE_URL}" == *"api.x.ai"* ]]; then
+    echo "For xAI, export XAI_API_KEY and retry, or:" >&2
+    echo "  curl -sS -H \"Authorization: Bearer \$XAI_API_KEY\" ${URL}" >&2
+  elif [[ "${BASE_URL}" == *"://127.0.0.1"* || "${BASE_URL}" == *"://localhost"* ]]; then
     echo "Start Ollama (\`ollama serve\`) or LM Studio's local server, then retry." >&2
     echo "After a pull, set model: in configs/examples/models.yaml to a tag from GET ${URL}." >&2
   else
-    echo "For xAI, export XAI_API_KEY and retry, or:" >&2
-    echo "  curl -sS -H \"Authorization: Bearer \$XAI_API_KEY\" ${URL}" >&2
+    echo "If this host requires a key, export it (XAI_API_KEY for api.x.ai) and retry." >&2
   fi
   exit 1
 fi

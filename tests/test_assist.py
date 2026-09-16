@@ -6,7 +6,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 import uvicorn
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.testclient import TestClient
 from pydantic import BaseModel
 
@@ -29,17 +29,24 @@ def _openai_compat_server(
     sql: str = "SELECT product, SUM(amount) AS total FROM sales GROUP BY product",
     available_models: list[str] | None = None,
     missing_status: int | None = None,
+    require_bearer: str | None = None,
 ) -> Iterator[str]:
     """Serve a tiny OpenAI-compatible /v1 on an ephemeral port."""
     listed = available_models or ["stub-sql"]
     fake = FastAPI()
 
+    def _check_auth(authorization: str | None) -> None:
+        if require_bearer is not None and authorization != f"Bearer {require_bearer}":
+            raise HTTPException(status_code=401, detail="missing bearer")
+
     @fake.get("/v1/models")
-    def models() -> dict[str, object]:
+    def models(authorization: str | None = Header(default=None)) -> dict[str, object]:
+        _check_auth(authorization)
         return {"data": [{"id": item} for item in listed]}
 
     @fake.post("/v1/chat/completions")
-    def chat(payload: _ChatRequest) -> dict[str, object]:
+    def chat(payload: _ChatRequest, authorization: str | None = Header(default=None)) -> dict[str, object]:
+        _check_auth(authorization)
         if missing_status is not None and payload.model not in listed:
             raise HTTPException(status_code=missing_status, detail={"error": {"message": "model not found"}})
         return {

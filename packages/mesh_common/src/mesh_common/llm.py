@@ -53,7 +53,10 @@ def slot_headers(slot: LlmSlotConfig) -> dict[str, str]:
         return {}
     key = os.environ.get(slot.api_key_env)
     if not key:
-        return {}
+        raise RuntimeError(
+            f"{slot.api_key_env} is not set. Export that environment variable before "
+            f"calling {slot.model} at {slot.base_url}."
+        )
     return {"Authorization": f"Bearer {key}"}
 
 

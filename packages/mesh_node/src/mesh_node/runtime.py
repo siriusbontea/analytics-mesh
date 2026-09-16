@@ -448,21 +448,8 @@ class NodeRuntime:
             connector_ids=connector_ids,
             analytic_id=analytic_id,
             model_provider=model_provider,
+            llm_default_mode=self.llm.config.policy.default_mode,
         )
-        if (
-            not decision.allowed
-            and model_provider == "frontier"
-            and self.llm.config.policy.default_mode == "allow_frontier"
-        ):
-            lifted = self.policy.authorize(
-                principal=principal,
-                action=action,
-                node_id=self.config.node_id,
-                connector_ids=connector_ids,
-                analytic_id=analytic_id,
-            )
-            if lifted.allowed:
-                decision = lifted.model_copy(update={"model_mode": "allow_frontier"})
         if not decision.allowed:
             self._deny(
                 principal=principal,
@@ -509,11 +496,11 @@ class NodeRuntime:
             action="assist_nl2sql",
             node_id=self.config.node_id,
             model_provider=provider,
+            llm_default_mode=self.llm.config.policy.default_mode,
         )
-        models_allow = self.llm.config.allows_frontier(model_mode)
-        if not decision.allowed and not (provider == "frontier" and models_allow):
+        if not decision.allowed:
             return None, None
-        if provider == "frontier" and not models_allow:
+        if provider == "frontier" and model_mode == "local_only" and decision.model_mode == "local_only":
             return None, None
         return provider, model_id
 
