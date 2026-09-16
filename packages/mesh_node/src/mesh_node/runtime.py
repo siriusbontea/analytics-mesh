@@ -12,7 +12,7 @@ import pyarrow as pa
 from mesh_common.artifacts import ArtifactStore, ArtifactTooLarge
 from mesh_common.hashing import sha256_text
 from mesh_common.identity import generate_keypair, load_or_create_keypair
-from mesh_common.llm import LlmClient, extract_sql
+from mesh_common.llm import LlmClient, describe_llm_error, extract_sql
 from mesh_common.policy import PolicyDenied, PolicyEngine, load_policy
 from mesh_common.preview import preview_parquet
 from mesh_common.receipts import ReceiptStore
@@ -231,14 +231,14 @@ class NodeRuntime:
                 raw = self.llm.complete(slot, messages, timeout=60.0)
                 sql = validate_sql(extract_sql(raw))
             except (SqlGuardError, ValueError, OSError, RuntimeError, httpx.HTTPError) as exc:
-                last_error = str(exc)
+                last_error = describe_llm_error(exc, slot)
                 attempts.append(
                     ModelAttempt(
                         slot=slot_name,
                         provider=slot.provider,
                         model=slot.model,
                         status="failed",
-                        error=str(exc),
+                        error=last_error,
                     )
                 )
                 continue
@@ -342,14 +342,14 @@ class NodeRuntime:
             try:
                 text = self.llm.complete(slot, messages, timeout=60.0)
             except (ValueError, OSError, RuntimeError, httpx.HTTPError) as exc:
-                last_error = str(exc)
+                last_error = describe_llm_error(exc, slot)
                 attempts.append(
                     ModelAttempt(
                         slot=slot_name,
                         provider=slot.provider,
                         model=slot.model,
                         status="failed",
-                        error=str(exc),
+                        error=last_error,
                     )
                 )
                 continue

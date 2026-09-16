@@ -88,6 +88,7 @@ def test_help_content_matches_product_behavior():
     assert "allowlist" in html
     assert "uv run mesh" in html
     assert "zero" in html and "llm" in html
+    assert "ollama" in html or "node-with-models" in html
     assert "policy" in html
     assert "duckdb" in html
     assert "polars" in html

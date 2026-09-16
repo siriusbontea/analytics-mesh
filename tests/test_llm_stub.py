@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -10,6 +11,7 @@ from mesh_common.llm import (
     LlmSlotConfig,
     OpenAICompatibleClient,
     assist_attribution,
+    describe_llm_error,
     load_llm_config,
     probe_models,
 )
@@ -31,6 +33,16 @@ def test_models_yaml_shape_loads():
     assert cfg.fallback
     assert cfg.policy.default_mode == "local_only"
     assert cfg.is_configured() is True
+
+
+def test_models_yaml_documents_placeholders_and_probe():
+    text = Path("configs/examples/models.yaml").read_text()
+    lowered = text.lower()
+    assert "ollama pull" in lowered
+    assert "placeholder" in lowered
+    assert "local_only" in text
+    assert "/models" in text
+    assert "node-with-models" in lowered or "models_path" in lowered
 
 
 def test_probe_models_hits_openai_compatible_endpoint():
@@ -115,3 +127,63 @@ def test_candidate_slots_preserve_main_then_fallback_order():
     assert names[1] == "fallback"
     local_only = client.candidate_slots("main", allow_frontier=False)
     assert all(slot.provider == "local" for _name, slot in local_only)
+
+
+def test_describe_llm_error_distinguishes_down_vs_missing():
+    import httpx
+
+    slot = LlmSlotConfig(provider="local", base_url="http://127.0.0.1:11434/v1", model="my-tag")
+    down = describe_llm_error(httpx.ConnectError("connection refused"), slot)
+    assert "unreachable" in down.lower()
+    assert "11434" in down
+    request = httpx.Request("POST", "http://127.0.0.1:11434/v1/chat/completions")
+    response = httpx.Response(404, request=request, text='{"error":{"message":"model not found"}}')
+    missing = describe_llm_error(httpx.HTTPStatusError("404", request=request, response=response), slot)
+    assert "not found" in missing.lower()
+    assert "my-tag" in missing
+    assert "pull" in missing.lower()
+
+
+def test_check_models_script_probes_openai_compat_endpoint():
+    import threading
+
+    import uvicorn
+
+    fake = FastAPI()
+
+    @fake.get("/v1/models")
+    def models() -> dict[str, object]:
+        return {"data": [{"id": "stub-local-tag"}]}
+
+    server = uvicorn.Server(uvicorn.Config(fake, host="127.0.0.1", port=0, log_level="error"))
+    thread = threading.Thread(target=server.run, daemon=True)
+    thread.start()
+    try:
+        for _ in range(50):
+            if server.started:
+                break
+            thread.join(0.05)
+        assert server.started
+        port = server.servers[0].sockets[0].getsockname()[1]
+        script = Path("scripts/check-models.sh")
+        assert script.is_file()
+        ok = subprocess.run(
+            ["bash", str(script), f"http://127.0.0.1:{port}/v1"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert ok.returncode == 0
+        assert "stub-local-tag" in ok.stdout
+        down = subprocess.run(
+            ["bash", str(script), "http://127.0.0.1:9/v1"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert down.returncode != 0
+        combined = (down.stdout + down.stderr).lower()
+        assert "cannot reach" in combined or "unreachable" in combined
+    finally:
+        server.should_exit = True
+        thread.join(timeout=5)

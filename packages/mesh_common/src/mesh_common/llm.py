@@ -69,6 +69,43 @@ def assist_attribution(slot: LlmSlotConfig | None) -> dict[str, str | None]:
     return {"model_provider": slot.provider, "model_id": slot.model}
 
 
+def describe_llm_error(exc: BaseException, slot: LlmSlotConfig) -> str:
+    """Human-readable assist error: endpoint down vs model missing vs other."""
+    base = slot.base_url.rstrip("/")
+    model = slot.model
+    if isinstance(exc, (httpx.ConnectError, httpx.ConnectTimeout)):
+        return (
+            f"Local model endpoint is unreachable at {base}. "
+            "Start Ollama (`ollama serve`) or LM Studio, then probe "
+            f"GET {base}/models (or run scripts/check-models.sh)."
+        )
+    if isinstance(exc, httpx.TimeoutException):
+        return (
+            f"Timed out talking to {base} for model {model}. "
+            "The endpoint may still be loading weights."
+        )
+    if isinstance(exc, httpx.HTTPStatusError):
+        status = exc.response.status_code
+        try:
+            body = exc.response.text
+        except Exception:
+            body = ""
+        lowered = body.lower()
+        missing = status == 404 or "not found" in lowered or "does not exist" in lowered
+        if missing:
+            return (
+                f"Model {model!r} was not found at {base}. "
+                f"Pull a local tag (for example `ollama pull {model}`) "
+                f"or set model: to an id from GET {base}/models."
+            )
+        snippet = " ".join(body.split())
+        if len(snippet) > 240:
+            snippet = snippet[:237] + "..."
+        return f"Model endpoint {base} returned HTTP {status} for {model}: {snippet or exc}"
+    text = str(exc).strip()
+    return text or "model call failed"
+
+
 class LlmNotConfigured(RuntimeError):
     """Assist requested but no provider slot is configured."""
 

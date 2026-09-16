@@ -104,6 +104,15 @@
 
 **Exit:** `uv run pytest` green (~120+); `uv run pytest -m ui` green after `playwright install chromium`.
 
-## 10. Not in M9 / v1
+## 10. M10 tasks (implemented)
+
+1. Example wiring: `configs/examples/node-with-models.yaml` sets `models_path` to `configs/examples/models.yaml`. Default `node.yaml` stays LLM-free (`models_path` commented). `models.yaml` comments document `ollama pull`, `GET {base_url}/models` / `scripts/check-models.sh`, placeholder model ids, and `policy.default_mode: local_only` so frontier fallback does not fire unless allowed.
+2. Runtime UX: assist receipts already record `model_provider` / `model_id` / fallback fields when used. Errors distinguish an unreachable local endpoint (Ollama / LM Studio down) from a missing model tag (`ollama pull` / set `model:`).
+3. Tests: OpenAI-compatible HTTP stub proves `/assist/nl2sql` returns proposed SQL + `used: true` and never executes; without models still `used: false`. Unit tests for example configs, error copy, and `scripts/check-models.sh`.
+4. Docs: README “Optional local LLM for Propose SQL”; Help drawer one-liner; this M10 note.
+
+**Exit:** `uv run pytest` green including stub assist tests; documented path to run against real Ollama; UI marker tests unchanged.
+
+## 11. Not in M10 / v1
 
 Federated learning, Hermes learning loop, messaging gateways, full OPA deployment, Axonis decision graph UI.
