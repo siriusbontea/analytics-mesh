@@ -58,7 +58,7 @@ export MESH_PAIR_TOKEN="$(openssl rand -hex 24)"   # same value on plane and eve
 # or in plane.yaml / node plane:  pair_token_env: MESH_PAIR_TOKEN
 ```
 
-`MESH_PAIR_TOKEN` (or the env var named by `pair_token_env`) wins over YAML. `mesh pair --token` still wins over both. This is not PKI or SSO — it is a shared registration secret.
+`MESH_PAIR_TOKEN` (or the env var named by `pair_token_env`) wins over YAML. `mesh pair --token` still wins over both. This is not PKI or SSO — it is a shared registration secret. `./scripts/two-node-demo.sh` uses `${MESH_PAIR_TOKEN:-demo-pair-token}` so an exported token stays consistent; leave the variable unset for the laptop demo.
 
 **Listen stays `127.0.0.1` by default.** Do not bind `0.0.0.0`. For multi-machine, set Tailscale (or LAN) addresses on purpose:
 
@@ -506,7 +506,7 @@ Localhost demo defaults are unchanged: `127.0.0.1`, `demo-pair-token`, `data/sam
 | `MESH_PAIR_TOKEN`, or the env var named by `pair_token_env` | Wins over YAML when set |
 | `registration_token` / `plane.token` in YAML | Laptop demo fallback (`demo-pair-token`) |
 
-If `pair_token_env` is set and that variable is empty, startup/register fails rather than falling back to the demo token. Generate a secret (`openssl rand -hex 24`) and put it in `/etc/analytics-mesh/mesh.env` (see systemd below). Do not commit it.
+If `pair_token_env` is set and that variable is empty, register fails (HTTP 503) rather than falling back to the demo token. Generate a secret (`openssl rand -hex 24`) and put it in `/etc/analytics-mesh/mesh.env` (see systemd below). Do not commit it.
 
 ### Listen posture / Tailscale
 

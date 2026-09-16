@@ -34,7 +34,6 @@ artifacts:
 # Optional plane pairing — token comes from MESH_PAIR_TOKEN, not this file:
 # plane:
 #   url: http://plane.tailnet.ts.net:8090
-#   token: unused-when-MESH_PAIR_TOKEN-is-set
 #   pair_token_env: MESH_PAIR_TOKEN
 #   register_on_start: true
 #   public_endpoint: http://this-node.tailnet.ts.net:8080

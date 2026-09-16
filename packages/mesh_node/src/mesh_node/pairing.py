@@ -11,7 +11,7 @@ from mesh_node.runtime import NodeRuntime
 def node_public_endpoint(config: NodeConfig) -> str:
     if config.plane and config.plane.public_endpoint:
         return config.plane.public_endpoint.rstrip("/")
-    return f"http://{config.listen_host}:{config.listen_port}"
+    return f"http://{config.resolved_listen_host()}:{config.resolved_listen_port()}"
 
 
 def register_with_plane(
@@ -26,14 +26,11 @@ def register_with_plane(
         if config.plane is None:
             raise ValueError("plane URL is required to register")
         plane_url = config.plane.url
-    try:
-        token = resolve_pair_token(
-            config.plane.token if config.plane else None,
-            pair_token_env=config.plane.pair_token_env if config.plane else None,
-            override=token,
-        )
-    except ValueError as exc:
-        raise ValueError("registration token is required to register") from exc
+    token = resolve_pair_token(
+        config.plane.token if config.plane else None,
+        pair_token_env=config.plane.pair_token_env if config.plane else None,
+        override=token,
+    )
     body = build_registration(
         keys=runtime.identity,
         endpoint=endpoint or node_public_endpoint(config),

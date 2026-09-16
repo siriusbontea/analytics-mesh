@@ -33,6 +33,12 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
     items[:] = [item for item in items if "ui" not in item.keywords]
 
 
+@pytest.fixture(autouse=True)
+def _clear_pair_token_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep pairing tests hermetic if a developer exported MESH_PAIR_TOKEN."""
+    monkeypatch.delenv("MESH_PAIR_TOKEN", raising=False)
+
+
 @pytest.fixture
 def sales_csv_text() -> str:
     return SALES_CSV

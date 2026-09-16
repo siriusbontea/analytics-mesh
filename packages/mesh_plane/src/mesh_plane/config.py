@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import yaml
@@ -22,6 +23,13 @@ class PlaneConfig(BaseModel):
 
     def resolved_registration_token(self) -> str:
         return resolve_pair_token(self.registration_token, pair_token_env=self.pair_token_env)
+
+    def resolved_listen_host(self) -> str:
+        return os.environ.get("MESH_LISTEN_HOST") or self.listen_host
+
+    def resolved_listen_port(self) -> int:
+        raw = os.environ.get("MESH_LISTEN_PORT")
+        return int(raw) if raw else self.listen_port
 
 
 def load_config(path: Path | str) -> PlaneConfig:

@@ -124,8 +124,8 @@ def serve(
     from mesh_node.config import load_config
 
     cfg = load_config(config)
-    listen_host = host or cfg.listen_host
-    listen_port = port or cfg.listen_port
+    listen_host = host or cfg.resolved_listen_host()
+    listen_port = port or cfg.resolved_listen_port()
     typer.echo(f"serving node {cfg.node_id} on http://{listen_host}:{listen_port}")
     typer.echo(f"web UI: http://{listen_host}:{listen_port}/ui")
     uvicorn.run(create_app(cfg), host=listen_host, port=listen_port, log_level="info")
@@ -142,8 +142,8 @@ def serve_plane(
     from mesh_plane.config import load_config
 
     cfg = load_config(config)
-    listen_host = host or cfg.listen_host
-    listen_port = port or cfg.listen_port
+    listen_host = host or cfg.resolved_listen_host()
+    listen_port = port or cfg.resolved_listen_port()
     typer.echo(f"serving plane {cfg.plane_id} on http://{listen_host}:{listen_port}")
     typer.echo(f"web UI: http://{listen_host}:{listen_port}/ui (pick a registered node)")
     uvicorn.run(create_app(cfg), host=listen_host, port=listen_port, log_level="info")
@@ -183,11 +183,9 @@ def pair(
             "provide --config, or --node-id, --identity-key, --endpoint, and --token (or MESH_PAIR_TOKEN)"
         )
     try:
-        token = resolve_pair_token(configured=token, override=token)
+        token = resolve_pair_token(override=token)
     except ValueError as exc:
-        raise typer.BadParameter(
-            "provide --config, or --node-id, --identity-key, --endpoint, and --token (or MESH_PAIR_TOKEN)"
-        ) from exc
+        raise typer.BadParameter(str(exc)) from exc
 
     from mesh_common.identity import build_registration, load_or_create_keypair
 

@@ -8,7 +8,9 @@ from fastapi.testclient import TestClient
 
 from mesh_common.identity import canonical_registration_payload, generate_keypair
 from mesh_common.secrets import DEFAULT_PAIR_TOKEN_ENV, resolve_pair_token
-from mesh_node.config import PlaneClientConfig, load_config as load_node_config
+from mesh_node.config import NodeConfig, PlaneClientConfig, load_config as load_node_config
+from mesh_node.pairing import node_public_endpoint, register_with_plane
+from mesh_node.runtime import NodeRuntime
 from mesh_plane.app import create_app as create_plane_app
 from mesh_plane.config import PlaneConfig, load_config as load_plane_config
 
@@ -104,6 +106,59 @@ def test_node_plane_client_resolved_token(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv(DEFAULT_PAIR_TOKEN_ENV, "node-env-token")
     plane = PlaneClientConfig(url="http://127.0.0.1:8090", token="demo-pair-token")
     assert plane.resolved_token() == "node-env-token"
+
+
+def test_register_with_plane_sends_env_token(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv(DEFAULT_PAIR_TOKEN_ENV, "node-sends-env")
+    plane = TestClient(
+        create_plane_app(
+            PlaneConfig(
+                plane_id="env-plane",
+                registration_token="demo-pair-token",
+                store_path=tmp_path / "plane.sqlite",
+            )
+        )
+    )
+
+    def routed_post(url: str, json: dict | None = None, timeout: float | None = None, **kwargs):
+        assert url.endswith("/nodes/register")
+        return plane.post("/nodes/register", json=json)
+
+    monkeypatch.setattr("mesh_node.pairing.httpx.post", routed_post)
+    node = NodeConfig(
+        node_id="env-node",
+        artifact_dir=tmp_path / "artifacts",
+        receipt_db=tmp_path / "receipts.sqlite",
+        identity_key_path=tmp_path / "identity.pem",
+        plane=PlaneClientConfig(url="http://127.0.0.1:8090", token="demo-pair-token"),
+    )
+    body = register_with_plane(NodeRuntime(node), node)
+    assert body["node"]["node_id"] == "env-node"
+
+
+def test_plane_missing_named_pair_token_env_is_503(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.delenv("MESH_BOX_PAIR", raising=False)
+    cfg = PlaneConfig(
+        plane_id="hook-plane",
+        registration_token="demo-pair-token",
+        pair_token_env="MESH_BOX_PAIR",
+        store_path=tmp_path / "plane.sqlite",
+    )
+    client = TestClient(create_plane_app(cfg))
+    keys = generate_keypair("node-hook")
+    response = client.post(
+        "/nodes/register",
+        json=_registration(keys, "http://127.0.0.1:8082", "demo-pair-token"),
+    )
+    assert response.status_code == 503
+    assert "MESH_BOX_PAIR" in response.text
+
+
+def test_node_public_endpoint_honors_listen_env(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("MESH_LISTEN_HOST", "100.64.0.11")
+    monkeypatch.setenv("MESH_LISTEN_PORT", "8088")
+    node = NodeConfig(node_id="tailnet-node", listen_host="127.0.0.1", listen_port=8080)
+    assert node_public_endpoint(node) == "http://100.64.0.11:8088"
 
 
 def test_example_plane_keeps_demo_token_and_localhost():
