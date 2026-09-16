@@ -1,12 +1,67 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
+from typing import Any
 
 import yaml
 
 from mesh_common.schemas import AnalyticSpec
 
 _SEMVER_PARTS = 3
+_TOKEN_RE = re.compile(r"[a-z0-9]+")
+_STOPWORDS = frozenset({"by", "the", "and", "for", "of", "a", "an", "to", "in", "on", "or"})
+
+
+def _tokens(text: str) -> list[str]:
+    return [token for token in _TOKEN_RE.findall(text.lower()) if token not in _STOPWORDS and len(token) >= 3]
+
+
+def _stem(token: str) -> str:
+    if token.endswith("ies") and len(token) > 4:
+        return token[:-3] + "y"
+    if token.endswith("s") and len(token) > 3 and not token.endswith("ss"):
+        return token[:-1]
+    return token
+
+
+def _analytic_id(item: AnalyticSpec | dict[str, Any]) -> str:
+    if isinstance(item, AnalyticSpec):
+        return item.analytic_id
+    return str(item["analytic_id"])
+
+
+def match_registered_analytic(
+    question: str,
+    analytics: list[AnalyticSpec] | list[dict[str, Any]],
+) -> AnalyticSpec | dict[str, Any] | None:
+    """Return a clearly matching registered analytic, or None.
+
+    Clear match means the question contains the analytic id as a phrase
+    (underscores become spaces), or every significant id token (length >= 3,
+    minus stopwords) appears after simple plural stemming. Description-only
+    overlap is not enough — e.g. "which product sold the most?" does not
+    match ``top_products``. Prefer the longest id when several match so
+    ``top products polars`` selects ``top_products_polars``.
+    """
+    raw = " ".join(_TOKEN_RE.findall(question.lower()))
+    if not raw or not analytics:
+        return None
+    question_stems = {_stem(token) for token in _tokens(question)}
+    phrase_hits: list[AnalyticSpec | dict[str, Any]] = []
+    token_hits: list[AnalyticSpec | dict[str, Any]] = []
+    for item in analytics:
+        analytic_id = _analytic_id(item)
+        phrase = " ".join(_TOKEN_RE.findall(analytic_id.replace("_", " ").lower()))
+        significant = [token for token in _TOKEN_RE.findall(phrase) if token not in _STOPWORDS and len(token) >= 3]
+        if phrase and phrase in raw:
+            phrase_hits.append(item)
+        elif len(significant) >= 2 and all(_stem(token) in question_stems for token in significant):
+            token_hits.append(item)
+    hits = phrase_hits or token_hits
+    if not hits:
+        return None
+    return max(hits, key=lambda item: len(_analytic_id(item)))
 
 
 class AnalyticSpecError(ValueError):

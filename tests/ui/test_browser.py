@@ -35,6 +35,8 @@ def test_help_drawer_open_and_dismiss(page: Page, live_node: str) -> None:
 
 def test_run_top_products_shows_preview_and_receipt(page: Page, live_node: str) -> None:
     page.goto(f"{live_node}/ui", wait_until="domcontentloaded")
+    expect(page.locator("#askWrap")).to_be_visible()
+    page.locator("#advancedWrap").locator("summary").click()
     analytic = page.locator("#analytic")
     expect(analytic.locator("option[value='top_products']")).to_have_count(1, timeout=15_000)
     analytic.select_option("top_products")
@@ -72,9 +74,77 @@ def test_upload_zone_visible_and_csv_becomes_table(page: Page, live_node: str, t
 
 def test_run_control_has_accessible_description(page: Page, live_node: str) -> None:
     page.goto(f"{live_node}/ui", wait_until="domcontentloaded")
+    page.locator("#advancedWrap").locator("summary").click()
     run = page.locator("#runBtn")
     expect(run).to_have_attribute("aria-describedby", "tip-run")
     run.focus()
     tip = page.locator("#tip-run")
     expect(tip).to_be_visible()
     expect(tip).to_contain_text("receipt")
+
+
+def test_ask_mode_is_default_and_model_chip_none(page: Page, live_node: str) -> None:
+    page.goto(f"{live_node}/ui", wait_until="domcontentloaded")
+    expect(page.locator("#askWrap")).to_be_visible()
+    expect(page.locator("#question")).to_be_visible()
+    expect(page.locator("#askBtn")).to_be_visible()
+    expect(page.locator("#askBtn")).to_have_text("Ask")
+    expect(page.locator("#confirmSqlBtn")).to_be_visible()
+    expect(page.locator("#confirmSqlBtn")).to_be_disabled()
+    expect(page.locator("#proposedSqlView")).to_be_hidden()
+    expect(page.locator("#advancedWrap")).to_be_visible()
+    expect(page.locator("#advancedWrap")).not_to_have_attribute("open", "")
+    expect(page.locator("#runBtn")).to_be_hidden()
+    chip = page.locator("#modelChip")
+    expect(chip).to_be_visible()
+    expect(chip).to_have_text("None")
+    expect(page.locator("#tip-ask")).to_contain_text("never auto-exec")
+    expect(page.locator("#tip-confirm")).to_contain_text("Confirm")
+    expect(page.locator("#tip-proposed-sql")).to_contain_text("SQL")
+    expect(page.locator("#tip-model-chip")).to_contain_text("node-with-grok.yaml")
+
+
+def test_ask_matching_analytic_confirm_runs(page: Page, live_node: str) -> None:
+    page.goto(f"{live_node}/ui", wait_until="domcontentloaded")
+    expect(page.locator("#analytic").locator("option[value='top_products']")).to_have_count(1, timeout=15_000)
+    page.locator("#question").fill("what are the top products?")
+    page.locator("#askBtn").click()
+    expect(page.locator("#analyticMatch")).to_be_visible()
+    expect(page.locator("#analyticMatch")).to_contain_text("top_products")
+    expect(page.locator("#proposedSqlView")).to_be_hidden()
+    expect(page.locator("#confirmSqlBtn")).to_be_enabled()
+    page.locator("#confirmSqlBtn").click()
+    expect(page.locator("#runStatus")).to_have_text("Succeeded.", timeout=30_000)
+    preview = page.locator("#resultTable").inner_text().lower()
+    assert any(name in preview for name in ("gadget", "widget", "sprocket")), preview
+
+
+def test_ask_without_match_shows_configure_models(page: Page, live_node: str) -> None:
+    page.goto(f"{live_node}/ui", wait_until="domcontentloaded")
+    page.locator("#question").fill("how many rows are in sales?")
+    page.locator("#askBtn").click()
+    expect(page.locator("#askEmpty")).to_be_visible()
+    expect(page.locator("#askEmpty")).to_contain_text("node-with-models.yaml")
+    expect(page.locator("#askEmpty")).to_contain_text("node-with-grok.yaml")
+    expect(page.locator("#confirmSqlBtn")).to_be_disabled()
+
+
+def test_ask_propose_then_confirm_with_stubbed_assist(page: Page, live_node: str) -> None:
+    page.route(
+        "**/assist/nl2sql",
+        lambda route: route.fulfill(
+            status=200,
+            content_type="application/json",
+            body='{"used":true,"confirmed":false,"question":"how many rows are in sales?","sql":"SELECT product, SUM(amount) AS total FROM sales GROUP BY product","message":"Proposed SQL only. Confirm explicitly before running; this endpoint never executes SQL.","model_provider":"local","model_id":"stub-sql"}',
+        ),
+    )
+    page.goto(f"{live_node}/ui", wait_until="domcontentloaded")
+    page.locator("#question").fill("how many rows are in sales?")
+    page.locator("#askBtn").click()
+    expect(page.locator("#proposedSqlView")).to_be_visible()
+    expect(page.locator("#proposedSqlView")).to_contain_text("FROM sales")
+    expect(page.locator("#confirmSqlBtn")).to_be_enabled()
+    expect(page.locator("#askEmpty")).to_be_hidden()
+    page.locator("#confirmSqlBtn").click()
+    expect(page.locator("#runStatus")).to_have_text("Succeeded.", timeout=30_000)
+    expect(page.locator("#resultTable").locator("tbody tr")).to_have_count(3, timeout=15_000)

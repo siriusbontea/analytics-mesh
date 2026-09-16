@@ -69,6 +69,29 @@ def probe_models(base_url: str, api_key: str | None = None, timeout: float = 5.0
     return [item["id"] for item in payload.get("data", []) if isinstance(item, dict) and item.get("id")]
 
 
+def llm_health_fields(config: LlmProviderConfig | None = None) -> dict[str, object]:
+    """Compact slot status for /health, /models, and the UI chip.
+
+    Labels are Local (main.provider=local), Grok (frontier main, typically
+    xAI via https://api.x.ai/v1), or None. Chip text does not imply a model
+    is reachable — only that a slot is configured.
+    """
+    cfg = config or LlmProviderConfig()
+    if not cfg.is_configured() or cfg.main is None:
+        return {"llm_configured": False, "llm_kind": "none", "llm_label": "None"}
+    main = cfg.main
+    if main.provider == "local":
+        kind, label = "local", "Local"
+    else:
+        kind, label = "frontier", "Grok"
+    return {
+        "llm_configured": True,
+        "llm_kind": kind,
+        "llm_label": label,
+        "llm_model": main.model,
+    }
+
+
 def assist_attribution(slot: LlmSlotConfig | None) -> dict[str, str | None]:
     """Receipt fields for an assist path. Core query/analytic runs pass None."""
     if slot is None:

@@ -428,6 +428,40 @@
       margin: 0.45rem 0 0.7rem;
     }
     body.help-open { overflow: hidden; }
+    .model-chip {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 0.2rem 0.65rem;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      border: 1px solid var(--line);
+      background: var(--card);
+      color: var(--muted);
+    }
+    .model-chip.local { background: var(--ok-soft); color: var(--ok); border-color: transparent; }
+    .model-chip.frontier { background: var(--accent-soft); color: var(--ink); border-color: transparent; }
+    .proposal-card {
+      margin-top: 0.75rem;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 0.75rem 0.85rem;
+      background: color-mix(in srgb, var(--accent) 6%, var(--card));
+    }
+    .proposal-card h3 { font-size: 0.92rem; margin: 0 0 0.35rem; }
+    .proposal-card pre { margin: 0.35rem 0 0; max-height: 12rem; }
+    .proposal-card .actions { position: static; padding-top: 0.5rem; background: transparent; }
+    details.advanced {
+      margin-top: 1rem;
+      border-top: 1px solid var(--line);
+      padding-top: 0.65rem;
+    }
+    details.advanced > summary {
+      cursor: pointer;
+      font-weight: 650;
+    }
+    #askEmpty code { font-size: 0.8rem; }
   </style>
 </head>
 <body>
@@ -445,6 +479,11 @@
           <span id="tip-principal" role="tooltip" class="tip-pop">Identity sent with every run and assist call. Policy allowlists decide what this principal may do; unknown principals are denied when configured.</span>
         </span>
       </label>
+      <span class="tip-wrap">
+        <span id="modelChip" class="model-chip none" aria-describedby="tip-model-chip">None</span>
+        <button type="button" class="tip-trigger" aria-describedby="tip-model-chip" aria-label="About model status">?</button>
+        <span id="tip-model-chip" role="tooltip" class="tip-pop">Shows the node’s configured assist slot: Local (Ollama / LM Studio via node-with-models.yaml), Grok (frontier xAI at https://api.x.ai/v1 with XAI_API_KEY via node-with-grok.yaml or node-with-local-then-grok.yaml), or None. A Grok or X Premium chat subscription is not API access — Hermes-style Grok still uses that OpenAI-compatible endpoint and key. The chip is status only; Ask never auto-runs SQL.</span>
+      </span>
       <span class="tip-wrap">
         <button id="themeToggle" type="button" class="ghost" aria-label="Toggle color theme" aria-describedby="tip-theme">Theme: Auto</button>
         <span id="tip-theme" role="tooltip" class="tip-pop">Cycles Auto, Light, and Dark. Auto follows your system preference; the choice is remembered in this browser only.</span>
@@ -499,7 +538,7 @@
 
   <div class="citizen-grid">
     <section id="runPanel" class="citizen">
-      <div class="section-head"><h2>Run</h2></div>
+      <div class="section-head"><h2>Ask</h2></div>
       <div id="nodeWrap" class="hidden">
         <label for="node">Node</label>
         <span class="tip-wrap block">
@@ -508,57 +547,86 @@
           <span id="tip-node" role="tooltip" class="tip-pop">Which registered node should execute. Data, artifacts, and the receipt chain stay on that node. The plane only records the job and pointers.</span>
         </span>
       </div>
-      <div class="row">
-        <div>
-          <label for="kind">Source</label>
-          <span class="tip-wrap block">
-            <select id="kind" aria-describedby="tip-kind">
-              <option value="analytic">Registered analytic</option>
-              <option value="sql">Ad-hoc SQL</option>
-            </select>
-            <button type="button" class="tip-trigger" aria-describedby="tip-kind" aria-label="About Source">?</button>
-            <span id="tip-kind" role="tooltip" class="tip-pop">Registered analytic runs a versioned SQL definition by id. Ad-hoc SQL is a single SELECT or WITH, sandboxed and gated by policy.</span>
-          </span>
-        </div>
-        <div id="analyticWrap">
-          <label for="analytic">Analytic</label>
-          <span class="tip-wrap block">
-            <select id="analytic" aria-describedby="tip-analytic"></select>
-            <button type="button" class="tip-trigger" aria-describedby="tip-analytic" aria-label="About Analytic">?</button>
-            <span id="tip-analytic" role="tooltip" class="tip-pop">Versioned analytics from the node’s registry. The latest semver runs unless you pin a version from the CLI.</span>
-          </span>
-        </div>
-      </div>
-      <div id="sqlWrap" class="hidden">
-        <label for="sql">SQL</label>
-        <span class="tip-wrap block">
-          <textarea id="sql" aria-describedby="tip-sql" placeholder="SELECT product, SUM(amount) AS total FROM sales GROUP BY product"></textarea>
-          <button type="button" class="tip-trigger" aria-describedby="tip-sql" aria-label="About SQL">?</button>
-          <span id="tip-sql" role="tooltip" class="tip-pop">Sandboxed SELECT or WITH only. File-read functions, DML, and multi-statement batches are rejected. Row and time caps come from node config and policy.</span>
-        </span>
-      </div>
-      <details id="assistWrap">
-        <summary>NL → SQL assist (optional)</summary>
-        <p class="muted">Proposes sandboxed SQL from a question. Nothing runs until you confirm.</p>
+      <div id="askWrap">
+        <p class="muted">Natural language first. Ask proposes a registered analytic or SQL. Nothing runs until you Confirm.</p>
         <label for="question">Question</label>
-        <textarea id="question" placeholder="Which product sold the most?"></textarea>
-        <p id="proposeStatus" class="muted">Assist never auto-executes SQL.</p>
-      </details>
-      <div class="actions">
-        <span class="tip-wrap">
-          <button id="runBtn" type="button" aria-describedby="tip-run">Run</button>
-          <span id="tip-run" role="tooltip" class="tip-pop">Executes the selected analytic or SQL on the target node. You get a preview, a Parquet artifact, and a hash-chained receipt. Source tables stay on that node.</span>
+        <span class="tip-wrap block">
+          <textarea id="question" aria-describedby="tip-ask" placeholder="What are the top products?"></textarea>
+          <button type="button" class="tip-trigger" aria-describedby="tip-ask" aria-label="About Ask">?</button>
+          <span id="tip-ask" role="tooltip" class="tip-pop">Ask drafts a confirm target from your question. A clear match to a registered analytic (for example “top products” → top_products) is offered without calling a model. Otherwise Ask calls /assist/nl2sql to propose SQL. Propose never auto-executes.</span>
         </span>
-        <span class="tip-wrap">
-          <button id="proposeBtn" class="secondary" type="button" aria-describedby="tip-propose">Propose SQL</button>
-          <span id="tip-propose" role="tooltip" class="tip-pop">Asks the optional model (local Ollama / LM Studio, or opt-in xAI Grok via node-with-grok.yaml and XAI_API_KEY) to draft sandboxed SQL from your question. Nothing executes at this step — propose never auto-executes.</span>
-        </span>
-        <span class="tip-wrap">
-          <button id="confirmSqlBtn" class="ghost" type="button" disabled aria-describedby="tip-confirm">Confirm and run proposed SQL</button>
-          <button type="button" class="tip-trigger" aria-describedby="tip-confirm" aria-label="About Confirm and run proposed SQL">?</button>
-          <span id="tip-confirm" role="tooltip" class="tip-pop">Runs the reviewed proposal as ad-hoc SQL. This is the confirm step; Propose SQL never auto-executes.</span>
-        </span>
+        <div id="askEmpty" class="banner info hidden" role="status">
+          No LLM configured. Serve <code>configs/examples/node-with-models.yaml</code> (local Ollama / LM Studio),
+          <code>node-with-grok.yaml</code>, or <code>node-with-local-then-grok.yaml</code> (frontier Grok uses
+          <code>https://api.x.ai/v1</code> + <code>XAI_API_KEY</code> — a chat subscription is not API access).
+          Registered analytics and raw SQL still work under Advanced with zero LLM.
+        </div>
+        <div id="proposalCard" class="proposal-card hidden">
+          <div id="analyticMatch" class="hidden"></div>
+          <div id="sqlProposal" class="hidden">
+            <span class="tip-wrap">
+              <h3>Proposed SQL</h3>
+              <button type="button" class="tip-trigger" aria-describedby="tip-proposed-sql" aria-label="About proposed SQL">?</button>
+              <span id="tip-proposed-sql" role="tooltip" class="tip-pop">Review this draft before Confirm. Edit SQL if you want to change it. Confirm is the trust step — the proposal is not a moral label, and it never runs until you confirm. Policy still blocks ATTACH, writes, and other disallowed statements.</span>
+            </span>
+            <pre id="proposedSqlView" aria-describedby="tip-proposed-sql"></pre>
+            <label class="sr-only" for="proposedSqlEdit">Edit proposed SQL</label>
+            <textarea id="proposedSqlEdit" class="hidden" aria-describedby="tip-proposed-sql"></textarea>
+            <div class="actions">
+              <button id="editSqlBtn" class="ghost small" type="button">Edit SQL</button>
+            </div>
+          </div>
+        </div>
+        <div class="actions">
+          <span class="tip-wrap">
+            <button id="askBtn" type="button" aria-describedby="tip-ask">Ask</button>
+          </span>
+          <span class="tip-wrap">
+            <button id="confirmSqlBtn" class="ghost" type="button" disabled aria-describedby="tip-confirm">Confirm</button>
+            <button type="button" class="tip-trigger" aria-describedby="tip-confirm" aria-label="About Confirm">?</button>
+            <span id="tip-confirm" role="tooltip" class="tip-pop">Runs the reviewed analytic or SQL on the target node. Ask never auto-executes. Confirm is for trust: you decide the draft is acceptable. Sandbox still rejects ATTACH, writes, and other policy-blocked SQL.</span>
+          </span>
+        </div>
+        <p id="proposeStatus" class="muted">Ask proposes only. Confirm is required to run.</p>
       </div>
+      <details id="advancedWrap" class="advanced">
+        <summary>Advanced — registered analytic or raw SQL (no LLM)</summary>
+        <div class="row">
+          <div>
+            <label for="kind">Source</label>
+            <span class="tip-wrap block">
+              <select id="kind" aria-describedby="tip-kind">
+                <option value="analytic">Registered analytic</option>
+                <option value="sql">Ad-hoc SQL</option>
+              </select>
+              <button type="button" class="tip-trigger" aria-describedby="tip-kind" aria-label="About Source">?</button>
+              <span id="tip-kind" role="tooltip" class="tip-pop">Registered analytic runs a versioned SQL definition by id. Ad-hoc SQL is a single SELECT or WITH. Both work with zero LLM. Policy still rejects ATTACH, writes, and other disallowed statements — that is the sandbox, not a moral label.</span>
+            </span>
+          </div>
+          <div id="analyticWrap">
+            <label for="analytic">Analytic</label>
+            <span class="tip-wrap block">
+              <select id="analytic" aria-describedby="tip-analytic"></select>
+              <button type="button" class="tip-trigger" aria-describedby="tip-analytic" aria-label="About Analytic">?</button>
+              <span id="tip-analytic" role="tooltip" class="tip-pop">Versioned analytics from the node’s registry. The latest semver runs unless you pin a version from the CLI.</span>
+            </span>
+          </div>
+        </div>
+        <div id="sqlWrap" class="hidden">
+          <label for="sql">SQL</label>
+          <span class="tip-wrap block">
+            <textarea id="sql" aria-describedby="tip-sql" placeholder="SELECT product, SUM(amount) AS total FROM sales GROUP BY product"></textarea>
+            <button type="button" class="tip-trigger" aria-describedby="tip-sql" aria-label="About SQL">?</button>
+            <span id="tip-sql" role="tooltip" class="tip-pop">Sandboxed SELECT or WITH only. ATTACH, file-read functions, DML, and multi-statement batches are rejected by policy — “risky” here means policy-blocked SQL, not a moral label. Row and time caps come from node config and policy.</span>
+          </span>
+        </div>
+        <div class="actions">
+          <span class="tip-wrap">
+            <button id="runBtn" type="button" aria-describedby="tip-run">Run</button>
+            <span id="tip-run" role="tooltip" class="tip-pop">Executes the selected analytic or SQL on the target node. You get a preview, a Parquet artifact, and a hash-chained receipt. Source tables stay on that node. No LLM is required.</span>
+          </span>
+        </div>
+      </details>
       <p id="runStatus" class="muted"></p>
     </section>
 
@@ -621,6 +689,7 @@
     </div>
     <nav id="helpNav" class="help-nav" aria-label="Help sections">
       <a href="#help=getting-started" data-help-nav="getting-started">Getting started</a>
+      <a href="#help=ask" data-help-nav="ask">Ask</a>
       <a href="#help=concepts" data-help-nav="concepts">Concepts</a>
       <a href="#help=cli-vs-ui" data-help-nav="cli-vs-ui">CLI vs UI</a>
       <a href="#help=receipts" data-help-nav="receipts">Receipts</a>
@@ -635,13 +704,26 @@
           <li>Open the <strong>plane</strong> UI at <code>http://127.0.0.1:8090/ui</code> (<code>uv run mesh plane</code> or <code>uv run mesh demo</code>). That is the product entry — even with a single registered node.</li>
           <li>Pick a registered node. Drop a CSV, Parquet, or JSON onto the connectors panel (or <strong>Browse</strong>). Files upload to that node under <code>uploads/</code>, not to the plane.</li>
           <li>Direct node <code>/ui</code> (<code>uv run mesh serve</code>) remains for operators and debug; the node is implicit there.</li>
-          <li>Choose a registered analytic (for example <code>top_products</code>) or switch Source to Ad-hoc SQL.</li>
-          <li>Click <strong>Run</strong>. The node executes; source data never leaves that node.</li>
+          <li>Type a question in <strong>Ask</strong> (the default). Click <strong>Ask</strong>, review the proposed analytic or SQL, then <strong>Confirm</strong>. Nothing runs until Confirm.</li>
+          <li>Or open <strong>Advanced</strong> to pick a registered analytic (for example <code>top_products</code>) or paste SQL and click <strong>Run</strong> — no LLM required.</li>
           <li>Read the preview table. A light bar chart appears when the preview has a label column plus a numeric column.</li>
           <li>Download the Parquet artifact if you want the file locally.</li>
           <li>Inspect the receipt (who, what, hash). Use <strong>Verify chain</strong> to check the node’s hash chain.</li>
         </ol>
-        <p>Analytics work with <strong>zero</strong> LLM configured. Optional NL→SQL is propose-then-confirm and never auto-executes. To enable <strong>Propose SQL</strong> locally, serve <code>configs/examples/node-with-models.yaml</code> after Ollama or LM Studio is running; default <code>node.yaml</code> stays LLM-free. Optional xAI Grok uses <code>node-with-grok.yaml</code> or <code>node-with-local-then-grok.yaml</code> plus <code>XAI_API_KEY</code> — a Grok or X Premium chat subscription is not API access.</p>
+        <p>Analytics and Advanced SQL work with <strong>zero</strong> LLM configured. Ask without a matching analytic shows a configure-models empty state until you serve <code>configs/examples/node-with-models.yaml</code> (local Ollama / LM Studio), <code>node-with-grok.yaml</code>, or <code>node-with-local-then-grok.yaml</code>. Frontier Grok uses OpenAI-compatible <code>https://api.x.ai/v1</code> plus <code>XAI_API_KEY</code> (subscription credits, if any, still use that key). A Grok or X Premium chat subscription is not API access. Default <code>node.yaml</code> stays LLM-free.</p>
+      </article>
+      <article id="help-ask" data-help-section="ask">
+        <h3>Ask</h3>
+        <p>The default Run kind is <strong>Ask (NL)</strong>. SQL is inspect/edit, never the blank default.</p>
+        <ol>
+          <li>Type a question and click <strong>Ask</strong>.</li>
+          <li>If a registered analytic clearly matches (the question contains the id as a phrase, for example “top products” → <code>top_products</code>), Confirm runs that analytic. No new endpoint; this uses the existing registry plus <code>/analytics/run</code>.</li>
+          <li>Otherwise Ask calls existing <code>/assist/nl2sql</code> (propose only) and shows the proposed SQL prominently. <strong>Edit SQL</strong> is optional before Confirm.</li>
+          <li><strong>Confirm</strong> is required. Ask never auto-executes proposed SQL.</li>
+        </ol>
+        <p>Confirm is a trust step: you review the draft. “Sandbox” / “risky” means policy-blocked SQL (<code>ATTACH</code>, writes, disallowed statements), not a moral label. Policy still applies after Confirm.</p>
+        <p>The topbar chip is <strong>Local</strong>, <strong>Grok</strong> (frontier), or <strong>None</strong>, from node <code>/health</code> / <code>/models</code>. Wire local models with <code>node-with-models.yaml</code>; Grok with <code>node-with-grok.yaml</code> or <code>node-with-local-then-grok.yaml</code>. Hermes-style Grok uses <code>https://api.x.ai/v1</code> + <code>XAI_API_KEY</code> — do not scrape consumer Grok chat.</p>
+        <p>There is no full chat agent. Assist is still only nl2sql + optional explain.</p>
       </article>
       <article id="help-concepts" data-help-section="concepts">
         <h3>Concepts</h3>
@@ -688,7 +770,7 @@ uv run mesh receipt &lt;receipt_id&gt; --url http://127.0.0.1:8090 --verify-chai
         <h3>Policy</h3>
         <p>YAML allowlists (example: <code>configs/examples/policy.yaml</code>) name principals and what they may use: connectors, analytics, nodes, row/time caps, and <code>local_only</code> vs <code>allow_frontier</code>. If <code>policy_path</code> is omitted, the node allows every principal (earlier milestone behavior).</p>
         <p>Denied <code>run_*</code> / assist calls return HTTP 403 and append a failed receipt. Sensitivity labels on connectors are informational metadata shown in this UI; they do not replace the allowlist.</p>
-        <p>NL→SQL assist is propose-then-confirm. <strong>Propose SQL</strong> never auto-executes. <strong>Confirm and run proposed SQL</strong> is a separate, explicit step. Assist is optional; analytics still work with zero LLM.</p>
+        <p>Ask is propose-then-confirm. <strong>Ask</strong> never auto-executes. <strong>Confirm</strong> is a separate, explicit trust step. The SQL sandbox rejects <code>ATTACH</code>, writes, and other disallowed statements (policy-blocked SQL, not a moral label). Assist is optional; analytics and Advanced SQL still work with zero LLM.</p>
       </article>
       <article id="help-mcp" data-help-section="mcp">
         <h3>MCP</h3>
@@ -707,8 +789,9 @@ uv run mesh receipt &lt;receipt_id&gt; --url http://127.0.0.1:8090 --verify-chai
     const MAX_BARS = 24;
     const THEME_KEY = "mesh-theme";
     const PRINCIPAL_KEY = "mesh-principal";
-    const state = { kind: "unknown", nodeId: null, last: null, proposed: null, receipt: null };
-    const HELP_SECTIONS = ["getting-started", "concepts", "cli-vs-ui", "receipts", "plane-vs-node", "policy", "mcp"];
+    const state = { kind: "unknown", nodeId: null, last: null, proposed: null, receipt: null, analytics: [], llmConfigured: false };
+    const HELP_SECTIONS = ["getting-started", "ask", "concepts", "cli-vs-ui", "receipts", "plane-vs-node", "policy", "mcp"];
+    const ASK_STOP = { by: 1, the: 1, and: 1, for: 1, of: 1, a: 1, an: 1, to: 1, in: 1, on: 1, or: 1 };
     let helpOpen = false;
     let helpLastFocus = null;
     let savedJobHash = null;
@@ -746,6 +829,97 @@ uv run mesh receipt &lt;receipt_id&gt; --url http://127.0.0.1:8090 --verify-chai
       }
       el.className = "banner " + (cls || "info");
       el.textContent = text;
+    }
+
+    function askWordTokens(text) {
+      return String(text || "").toLowerCase().match(/[a-z0-9]+/g) || [];
+    }
+
+    function askSignificantTokens(text) {
+      return askWordTokens(text).filter(function (token) { return token.length >= 3 && !ASK_STOP[token]; });
+    }
+
+    function askStem(token) {
+      if (token.length > 4 && token.slice(-3) === "ies") return token.slice(0, -3) + "y";
+      if (token.length > 3 && token.slice(-1) === "s" && token.slice(-2) !== "ss") return token.slice(0, -1);
+      return token;
+    }
+
+    function matchRegisteredAnalytic(question, analytics) {
+      const raw = askWordTokens(question).join(" ");
+      if (!raw || !analytics || !analytics.length) return null;
+      const stems = {};
+      askSignificantTokens(question).forEach(function (token) { stems[askStem(token)] = true; });
+      const phraseHits = [];
+      const tokenHits = [];
+      for (let i = 0; i < analytics.length; i++) {
+        const item = analytics[i];
+        const id = item.analytic_id || "";
+        const phraseTokens = askWordTokens(id.replace(/_/g, " "));
+        const phrase = phraseTokens.join(" ");
+        const significant = phraseTokens.filter(function (token) { return token.length >= 3 && !ASK_STOP[token]; });
+        if (phrase && raw.indexOf(phrase) >= 0) phraseHits.push(item);
+        else if (significant.length >= 2 && significant.every(function (token) { return stems[askStem(token)]; })) {
+          tokenHits.push(item);
+        }
+      }
+      const hits = phraseHits.length ? phraseHits : tokenHits;
+      if (!hits.length) return null;
+      return hits.reduce(function (best, item) {
+        return (item.analytic_id || "").length > (best.analytic_id || "").length ? item : best;
+      });
+    }
+
+    function resetProposal() {
+      state.proposed = null;
+      $("confirmSqlBtn").disabled = true;
+      $("proposalCard").classList.add("hidden");
+      $("analyticMatch").classList.add("hidden");
+      $("analyticMatch").textContent = "";
+      $("sqlProposal").classList.add("hidden");
+      $("proposedSqlView").textContent = "";
+      $("proposedSqlEdit").value = "";
+      $("proposedSqlEdit").classList.add("hidden");
+      $("proposedSqlView").classList.remove("hidden");
+      $("askEmpty").classList.add("hidden");
+    }
+
+    function showAnalyticProposal(item) {
+      $("proposalCard").classList.remove("hidden");
+      $("sqlProposal").classList.add("hidden");
+      $("askEmpty").classList.add("hidden");
+      $("analyticMatch").classList.remove("hidden");
+      $("analyticMatch").textContent = "Matched registered analytic " + item.analytic_id +
+        (item.description ? " — " + item.description : "") +
+        ". Confirm runs that analytic (no LLM, no invented SQL).";
+      state.proposed = { type: "analytic", analytic_id: item.analytic_id, version: item.version };
+      $("confirmSqlBtn").disabled = false;
+    }
+
+    function showSqlProposal(body) {
+      $("proposalCard").classList.remove("hidden");
+      $("analyticMatch").classList.add("hidden");
+      $("askEmpty").classList.add("hidden");
+      $("sqlProposal").classList.remove("hidden");
+      $("proposedSqlView").textContent = body.sql || "";
+      $("proposedSqlView").classList.remove("hidden");
+      $("proposedSqlEdit").value = body.sql || "";
+      $("proposedSqlEdit").classList.add("hidden");
+      $("sql").value = body.sql || "";
+      state.proposed = {
+        type: "sql",
+        sql: body.sql,
+        model_provider: body.model_provider,
+        model_id: body.model_id,
+      };
+      $("confirmSqlBtn").disabled = false;
+    }
+
+    function setModelChip(label, kind) {
+      const chip = $("modelChip");
+      const known = kind === "local" || kind === "frontier" ? kind : "none";
+      chip.textContent = label || "None";
+      chip.className = "model-chip " + known;
     }
 
     function formatError(body, fallback) {
@@ -959,6 +1133,7 @@ uv run mesh receipt &lt;receipt_id&gt; --url http://127.0.0.1:8090 --verify-chai
     async function loadAnalytics() {
       const select = $("analytic");
       select.innerHTML = "";
+      state.analytics = [];
       let data;
       if (state.kind === "plane") {
         const nodeId = currentNode();
@@ -967,6 +1142,7 @@ uv run mesh receipt &lt;receipt_id&gt; --url http://127.0.0.1:8090 --verify-chai
       } else {
         data = await api("/analytics");
       }
+      state.analytics = data.analytics || [];
       for (const item of data.analytics || []) {
         const opt = document.createElement("option");
         opt.value = item.analytic_id;
@@ -988,20 +1164,29 @@ uv run mesh receipt &lt;receipt_id&gt; --url http://127.0.0.1:8090 --verify-chai
         let data;
         if (state.kind === "plane") {
           const nodeId = currentNode();
-          if (!nodeId) return;
+          if (!nodeId) {
+            state.llmConfigured = false;
+            setModelChip("None", "none");
+            el.className = "banner info hidden";
+            return;
+          }
           data = await api("/nodes/" + encodeURIComponent(nodeId) + "/models");
         } else {
           data = await api("/models");
         }
-        if (!data.configured) {
-          el.className = "banner info";
-          el.textContent = "No LLM configured. Analytics still work.";
+        state.llmConfigured = !!(data.configured || data.llm_configured);
+        setModelChip(data.llm_label || (state.llmConfigured ? "Local" : "None"), data.llm_kind || "none");
+        if (!state.llmConfigured) {
+          el.className = "banner info hidden";
+          el.textContent = "";
         } else {
+          const slot = data.main ? (data.main.provider + " / " + data.main.model) : (data.llm_label || "configured");
           el.className = "banner info";
-          el.textContent = "Optional model: " + data.main.provider + " / " + data.main.model +
-            " (NL→SQL propose only; confirm before run)";
+          el.textContent = "Assist slot: " + slot + " (Ask proposes only; Confirm before run)";
         }
       } catch (err) {
+        state.llmConfigured = false;
+        setModelChip("None", "none");
         el.className = "banner warn";
         el.textContent = "Model status unavailable: " + err.message;
       }
@@ -1177,8 +1362,8 @@ uv run mesh receipt &lt;receipt_id&gt; --url http://127.0.0.1:8090 --verify-chai
       try {
         const kind = $("kind").value;
         let body;
-        if (kind === "analytic" && !assistOverride) {
-          const analyticId = $("analytic").value;
+        if ((assistOverride && assistOverride.analytic_id) || (kind === "analytic" && !assistOverride)) {
+          const analyticId = (assistOverride && assistOverride.analytic_id) || $("analytic").value;
           if (!analyticId) throw new Error("Choose a registered analytic first.");
           const payload = { analytic_id: analyticId, principal: currentPrincipal() };
           if (state.kind === "plane") payload.node_id = currentNode();
@@ -1234,20 +1419,26 @@ uv run mesh receipt &lt;receipt_id&gt; --url http://127.0.0.1:8090 --verify-chai
       }
     }
 
-    async function proposeSql() {
+    async function askQuestion() {
       const question = $("question").value.trim();
       if (!question) {
         setStatus($("proposeStatus"), "Enter a question first.", "status err");
         return;
       }
-      $("confirmSqlBtn").disabled = true;
-      state.proposed = null;
-      setStatus($("proposeStatus"), "Proposing SQL (not running)…");
+      resetProposal();
+      setStatus($("proposeStatus"), "Asking (not running)…");
       try {
+        if (state.kind === "plane" && !currentNode()) throw new Error("Pick a registered node first.");
+        const match = matchRegisteredAnalytic(question, state.analytics);
+        if (match) {
+          showAnalyticProposal(match);
+          setStatus($("proposeStatus"), "Matched a registered analytic. Review it, then Confirm to run. No LLM used.", "status ok");
+          persistPrincipal();
+          return;
+        }
         const payload = { question: question, principal: currentPrincipal() };
         let path = "/assist/nl2sql";
         if (state.kind === "plane") {
-          if (!currentNode()) throw new Error("Pick a registered node first.");
           path = "/nodes/" + encodeURIComponent(currentNode()) + "/assist/nl2sql";
         }
         const body = await api(path, {
@@ -1257,17 +1448,12 @@ uv run mesh receipt &lt;receipt_id&gt; --url http://127.0.0.1:8090 --verify-chai
         });
         persistPrincipal();
         if (!body.used || !body.sql) {
+          $("askEmpty").classList.remove("hidden");
           setStatus($("proposeStatus"), body.message || "No model configured; SQL was not proposed.", "status err");
           return;
         }
-        state.proposed = body;
-        $("kind").value = "sql";
-        $("analyticWrap").classList.add("hidden");
-        $("sqlWrap").classList.remove("hidden");
-        $("sql").value = body.sql;
-        $("confirmSqlBtn").disabled = false;
-        $("assistWrap").open = true;
-        setStatus($("proposeStatus"), "Proposed SQL only. Review it, then confirm to run. Model: " +
+        showSqlProposal(body);
+        setStatus($("proposeStatus"), "Proposed SQL only. Review it, then Confirm to run. Model: " +
           body.model_provider + " / " + body.model_id, "status ok");
       } catch (err) {
         setStatus($("proposeStatus"), err.message, "status err");
@@ -1275,17 +1461,33 @@ uv run mesh receipt &lt;receipt_id&gt; --url http://127.0.0.1:8090 --verify-chai
     }
 
     async function confirmProposedSql() {
-      if (!state.proposed || !state.proposed.sql) {
-        setStatus($("proposeStatus"), "Propose SQL first.", "status err");
+      if (!state.proposed) {
+        setStatus($("proposeStatus"), "Ask first, then Confirm.", "status err");
         return;
       }
-      $("kind").value = "sql";
-      $("sql").value = state.proposed.sql;
+      if (state.proposed.type === "analytic") {
+        $("analytic").value = state.proposed.analytic_id;
+        await run({ analytic_id: state.proposed.analytic_id });
+        return;
+      }
+      const sql = ($("proposedSqlEdit").value || $("proposedSqlView").textContent || state.proposed.sql || "").trim();
+      if (!sql) {
+        setStatus($("proposeStatus"), "Proposed SQL is empty.", "status err");
+        return;
+      }
+      $("sql").value = sql;
       await run({
-        sql: state.proposed.sql,
+        sql: sql,
         assist_model_provider: state.proposed.model_provider,
         assist_model_id: state.proposed.model_id,
       });
+    }
+
+    function editProposedSql() {
+      if (!state.proposed || state.proposed.type !== "sql") return;
+      $("proposedSqlView").classList.add("hidden");
+      $("proposedSqlEdit").classList.remove("hidden");
+      $("proposedSqlEdit").focus();
     }
 
     async function explain() {
@@ -1412,8 +1614,9 @@ uv run mesh receipt &lt;receipt_id&gt; --url http://127.0.0.1:8090 --verify-chai
       uploadSelectedFile(file);
     });
     $("runBtn").addEventListener("click", function () { run(); });
-    $("proposeBtn").addEventListener("click", proposeSql);
+    $("askBtn").addEventListener("click", askQuestion);
     $("confirmSqlBtn").addEventListener("click", confirmProposedSql);
+    $("editSqlBtn").addEventListener("click", editProposedSql);
     $("assistBtn").addEventListener("click", explain);
     $("copyReceiptBtn").addEventListener("click", copyReceiptId);
     $("verifyChainBtn").addEventListener("click", verifyChain);

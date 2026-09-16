@@ -4,7 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from mesh_common.registry import AnalyticRegistry, AnalyticSpecError
+from mesh_common.registry import AnalyticRegistry, AnalyticSpecError, match_registered_analytic
+from mesh_common.schemas import AnalyticSpec
 
 
 def _write_analytic(
@@ -98,3 +99,43 @@ def test_loads_repo_example_analytics():
     polars = registry.get("top_products_polars")
     assert polars.engine == "polars"
     assert "FROM sales" in polars.sql
+
+
+def _spec(analytic_id: str, description: str = "") -> AnalyticSpec:
+    return AnalyticSpec(
+        analytic_id=analytic_id,
+        version="1.0.0",
+        entry=f"{analytic_id}.sql",
+        sql="SELECT 1",
+        description=description,
+    )
+
+
+def test_match_registered_analytic_phrase_and_tokens():
+    analytics = [
+        _spec("top_products", "Rank products by total sales amount"),
+        _spec("sales_by_region", "Totals and order counts by region"),
+        _spec("top_products_polars", "Rank products by total sales (Polars)"),
+    ]
+    top = match_registered_analytic("what are the top products?", analytics)
+    assert top is not None
+    assert top.analytic_id == "top_products"
+
+    region = match_registered_analytic("sales by region please", analytics)
+    assert region is not None
+    assert region.analytic_id == "sales_by_region"
+
+    polars = match_registered_analytic("top products polars", analytics)
+    assert polars is not None
+    assert polars.analytic_id == "top_products_polars"
+
+
+def test_match_registered_analytic_is_conservative():
+    analytics = [
+        _spec("top_products", "Rank products by total sales amount"),
+        _spec("sales_by_region", "Totals and order counts by region"),
+    ]
+    assert match_registered_analytic("which product sold the most?", analytics) is None
+    assert match_registered_analytic("show me sales", analytics) is None
+    assert match_registered_analytic("", analytics) is None
+    assert match_registered_analytic("top products", []) is None
