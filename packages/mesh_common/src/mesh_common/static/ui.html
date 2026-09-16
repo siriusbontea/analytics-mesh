@@ -7,148 +7,425 @@
   <style>
     :root {
       color-scheme: light;
-      --bg: #f6f5f1;
-      --card: #fff;
+      --bg: #f3f0e8;
+      --card: #fffcf6;
       --ink: #1c1917;
       --muted: #57534e;
-      --line: #d6d3d1;
+      --line: #e4e0d8;
       --accent: #1d4ed8;
+      --accent-ink: #fff;
+      --accent-soft: #dbeafe;
       --ok: #166534;
+      --ok-soft: #dcfce7;
       --err: #b91c1c;
+      --err-soft: #fee2e2;
+      --warn: #92400e;
+      --shadow: 0 1px 2px rgb(28 25 23 / 0.06);
+      --topbar: rgb(243 240 232 / 0.92);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        color-scheme: dark;
+        --bg: #0c0a09;
+        --card: #1c1917;
+        --ink: #f5f5f4;
+        --muted: #a8a29e;
+        --line: #44403c;
+        --accent: #60a5fa;
+        --accent-ink: #0c0a09;
+        --accent-soft: #1e3a5f;
+        --ok: #4ade80;
+        --ok-soft: #14532d;
+        --err: #f87171;
+        --err-soft: #7f1d1d;
+        --warn: #fbbf24;
+        --shadow: 0 1px 2px rgb(0 0 0 / 0.35);
+        --topbar: rgb(12 10 9 / 0.88);
+      }
+    }
+    html[data-theme="light"] {
+      color-scheme: light;
+      --bg: #f3f0e8;
+      --card: #fffcf6;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e4e0d8;
+      --accent: #1d4ed8;
+      --accent-ink: #fff;
+      --accent-soft: #dbeafe;
+      --ok: #166534;
+      --ok-soft: #dcfce7;
+      --err: #b91c1c;
+      --err-soft: #fee2e2;
+      --warn: #92400e;
+      --shadow: 0 1px 2px rgb(28 25 23 / 0.06);
+      --topbar: rgb(243 240 232 / 0.92);
+    }
+    html[data-theme="dark"] {
+      color-scheme: dark;
+      --bg: #0c0a09;
+      --card: #1c1917;
+      --ink: #f5f5f4;
+      --muted: #a8a29e;
+      --line: #44403c;
+      --accent: #60a5fa;
+      --accent-ink: #0c0a09;
+      --accent-soft: #1e3a5f;
+      --ok: #4ade80;
+      --ok-soft: #14532d;
+      --err: #f87171;
+      --err-soft: #7f1d1d;
+      --warn: #fbbf24;
+      --shadow: 0 1px 2px rgb(0 0 0 / 0.35);
+      --topbar: rgb(12 10 9 / 0.88);
     }
     * { box-sizing: border-box; }
     body {
       margin: 0 auto;
-      max-width: 960px;
-      padding: 1.5rem 1.25rem 3rem;
+      max-width: 1180px;
+      padding: 0 1rem 3rem;
       font: 15px/1.45 ui-sans-serif, system-ui, sans-serif;
       color: var(--ink);
       background: var(--bg);
     }
-    h1 { font-size: 1.35rem; margin: 0 0 0.25rem; }
-    h2 { font-size: 1rem; margin: 0 0 0.75rem; }
-    p.lede { color: var(--muted); margin: 0 0 1.25rem; }
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      align-items: flex-end;
+      padding: 0.9rem 0 0.75rem;
+      margin-bottom: 0.75rem;
+      background: var(--topbar);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--line);
+    }
+    h1 { font-size: 1.25rem; margin: 0 0 0.2rem; letter-spacing: -0.02em; }
+    h2 { font-size: 1rem; margin: 0; }
+    .lede, .muted { color: var(--muted); }
+    .lede { margin: 0; font-size: 0.92rem; }
+    .top-tools {
+      display: flex;
+      gap: 0.6rem;
+      align-items: flex-end;
+      flex-wrap: wrap;
+    }
+    .field.compact { margin: 0; min-width: 10rem; }
+    .field.compact span {
+      display: block;
+      font-size: 0.75rem;
+      font-weight: 650;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+      margin-bottom: 0.2rem;
+    }
     section {
       background: var(--card);
       border: 1px solid var(--line);
-      border-radius: 10px;
+      border-radius: 12px;
       padding: 1rem 1.1rem;
-      margin-bottom: 1rem;
+      margin-bottom: 0;
+      box-shadow: var(--shadow);
+    }
+    .section-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.75rem;
     }
     label { display: block; font-weight: 600; margin: 0.6rem 0 0.3rem; }
-    select, textarea, input, button {
-      font: inherit;
-      width: 100%;
-    }
+    select, textarea, input, button { font: inherit; }
     select, textarea, input[type="text"] {
+      width: 100%;
       border: 1px solid var(--line);
       border-radius: 8px;
       padding: 0.45rem 0.6rem;
-      background: #fff;
+      background: var(--card);
+      color: var(--ink);
     }
-    textarea { min-height: 7rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    textarea { min-height: 6.5rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
     .row { display: flex; gap: 0.75rem; flex-wrap: wrap; }
     .row > * { flex: 1 1 12rem; }
     button {
       width: auto;
-      margin-top: 0.85rem;
       background: var(--accent);
-      color: #fff;
+      color: var(--accent-ink);
       border: 0;
       border-radius: 8px;
       padding: 0.5rem 0.9rem;
       cursor: pointer;
+      font-weight: 600;
     }
-    button.secondary { background: #44403c; }
+    button.secondary { background: #44403c; color: #fff; }
+    button.ghost {
+      background: transparent;
+      color: var(--ink);
+      border: 1px solid var(--line);
+    }
+    button.small { padding: 0.25rem 0.55rem; font-size: 0.82rem; font-weight: 600; }
     button:disabled { opacity: 0.5; cursor: not-allowed; }
-    .muted { color: var(--muted); font-size: 0.92rem; }
-    .status.ok { color: var(--ok); }
-    .status.err { color: var(--err); }
+    .actions {
+      position: sticky;
+      bottom: 0;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 0.9rem;
+      padding-top: 0.75rem;
+      background: var(--card);
+    }
+    .banner {
+      border-radius: 10px;
+      padding: 0.55rem 0.75rem;
+      margin: 0 0 0.75rem;
+      font-size: 0.92rem;
+    }
+    .banner.info { background: var(--accent-soft); color: var(--ink); }
+    .banner.ok, .status.ok { color: var(--ok); }
+    .banner.ok { background: var(--ok-soft); }
+    .banner.err, .status.err { color: var(--err); }
+    .banner.err { background: var(--err-soft); }
+    .banner.warn { color: var(--warn); }
+    .meta-grid, .citizen-grid {
+      display: grid;
+      gap: 0.85rem;
+      margin-bottom: 0.85rem;
+    }
+    .meta-grid { grid-template-columns: 1fr; }
+    .citizen-grid { grid-template-columns: 1fr; }
+    @media (min-width: 720px) {
+      .meta-grid { grid-template-columns: 1fr 1fr; }
+    }
+    @media (min-width: 980px) {
+      .citizen-grid { grid-template-columns: 1fr 1fr 1fr; align-items: start; }
+      .citizen { min-height: 28rem; }
+    }
+    @media (max-width: 719px) {
+      .topbar { flex-direction: column; align-items: stretch; }
+      .top-tools { justify-content: space-between; }
+      body { padding: 0 0.75rem 5rem; }
+    }
     table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
     th, td { border-bottom: 1px solid var(--line); text-align: left; padding: 0.35rem 0.4rem; }
     th { color: var(--muted); font-weight: 600; }
+    .scroll { overflow: auto; max-height: 22rem; }
     pre {
-      background: #f5f5f4;
+      background: color-mix(in srgb, var(--ink) 5%, var(--card));
       border-radius: 8px;
       padding: 0.7rem;
       overflow: auto;
-      font-size: 0.8rem;
+      font-size: 0.78rem;
+      max-height: 16rem;
     }
     a { color: var(--accent); }
-    .hidden { display: none; }
+    .hidden { display: none !important; }
+    .chip-list { display: flex; flex-direction: column; gap: 0.55rem; }
+    .chip {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 0.45rem 0.55rem;
+      font-size: 0.88rem;
+    }
+    .chip strong { display: block; }
+    .tables { color: var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.8rem; }
+    .jobs { width: 100%; font-size: 0.84rem; }
+    .jobs a { font-weight: 600; }
+    .badge {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 0.05rem 0.45rem;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: lowercase;
+    }
+    .badge.succeeded, .badge.ok { background: var(--ok-soft); color: var(--ok); }
+    .badge.failed, .badge.err { background: var(--err-soft); color: var(--err); }
+    .badge.running, .badge.queued { background: var(--accent-soft); color: var(--ink); }
+    .kv { display: grid; grid-template-columns: 6.5rem 1fr; gap: 0.25rem 0.6rem; margin: 0; font-size: 0.9rem; }
+    .kv dt { color: var(--muted); font-weight: 600; }
+    .kv dd { margin: 0; overflow-wrap: anywhere; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.8rem; }
+    details.raw { margin-top: 0.75rem; }
+    details.raw summary { cursor: pointer; font-weight: 600; }
+    #chartPreview {
+      margin: 0.4rem 0 0.8rem;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 0.55rem 0.55rem 0.2rem;
+    }
+    #chartPreview svg { width: 100%; height: auto; display: block; }
+    #chartPreview text { fill: var(--muted); font-family: inherit; }
+    .chart-caption { margin: 0.35rem 0 0.3rem; font-size: 0.82rem; }
+    .empty {
+      border: 1px dashed var(--line);
+      border-radius: 8px;
+      padding: 0.8rem;
+      color: var(--muted);
+    }
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+    }
   </style>
 </head>
 <body>
-  <h1>Analytics Mesh</h1>
-  <p class="lede">Pick a node, run a registered analytic or sandboxed SQL, then inspect the table, artifact, and receipt. No LLM required.</p>
-
-  <section>
-    <h2>Target</h2>
-    <p id="modeLabel" class="muted">Detecting…</p>
-    <div id="nodeWrap" class="hidden">
-      <label for="node">Node</label>
-      <select id="node"></select>
+  <header class="topbar">
+    <div>
+      <h1>Analytics Mesh</h1>
+      <p id="modeLabel" class="lede">Detecting target…</p>
     </div>
-    <p id="modelsStatus" class="muted"></p>
-  </section>
-
-  <section>
-    <h2>NL → SQL assist (optional)</h2>
-    <p class="muted">Proposes sandboxed SQL from a question. Nothing runs until you confirm.</p>
-    <label for="question">Question</label>
-    <textarea id="question" placeholder="Which product sold the most?"></textarea>
-    <div class="row">
-      <button id="proposeBtn" type="button">Propose SQL</button>
-      <button id="confirmSqlBtn" class="secondary" type="button" disabled>Confirm and run proposed SQL</button>
+    <div class="top-tools">
+      <label class="field compact" for="principal">
+        <span>Principal</span>
+        <input id="principal" type="text" value="web" autocomplete="username" spellcheck="false">
+      </label>
+      <button id="themeToggle" type="button" class="ghost" aria-label="Toggle color theme">Theme: Auto</button>
     </div>
-    <p id="proposeStatus" class="muted">Assist never auto-executes SQL in v1/M4.</p>
-  </section>
+  </header>
 
-  <section>
-    <h2>Run</h2>
-    <div class="row">
-      <div>
-        <label for="kind">Source</label>
-        <select id="kind">
-          <option value="analytic">Registered analytic</option>
-          <option value="sql">Ad-hoc SQL</option>
-        </select>
+  <p id="modelsStatus" class="banner info hidden"></p>
+  <p id="pageBanner" class="banner hidden" role="status"></p>
+
+  <div class="meta-grid">
+    <section id="connectorsPanel">
+      <div class="section-head">
+        <h2>Connectors</h2>
+        <button id="refreshConnectors" class="ghost small" type="button">Refresh</button>
       </div>
-      <div id="analyticWrap">
-        <label for="analytic">Analytic</label>
-        <select id="analytic"></select>
+      <p id="connectorsStatus" class="muted">Loading connectors…</p>
+      <div id="connectorsList" class="chip-list"></div>
+    </section>
+    <section id="jobsPanel" class="hidden">
+      <div class="section-head">
+        <h2>Recent jobs</h2>
+        <button id="refreshJobs" class="ghost small" type="button">Refresh</button>
       </div>
-    </div>
-    <div id="sqlWrap" class="hidden">
-      <label for="sql">SQL</label>
-      <textarea id="sql" placeholder="SELECT product, SUM(amount) AS total FROM sales GROUP BY product"></textarea>
-    </div>
-    <button id="runBtn" type="button">Run</button>
-    <p id="runStatus" class="muted"></p>
-  </section>
+      <p id="jobsStatus" class="muted"></p>
+      <div class="scroll">
+        <table class="jobs" id="jobsTable"></table>
+      </div>
+    </section>
+  </div>
 
-  <section>
-    <h2>Result</h2>
-    <p id="resultMeta" class="muted">Nothing run yet.</p>
-    <div style="overflow:auto"><table id="resultTable"></table></div>
-    <p><a id="downloadLink" class="hidden" href="#">Download Parquet artifact</a></p>
-    <button id="assistBtn" class="secondary" type="button" disabled>Explain result (optional assist)</button>
-    <p id="assistStatus" class="muted">Explain uses the auxiliary model when configured (local preferred). Core runs never call a model.</p>
-  </section>
+  <div class="citizen-grid">
+    <section id="runPanel" class="citizen">
+      <div class="section-head"><h2>Run</h2></div>
+      <div id="nodeWrap" class="hidden">
+        <label for="node">Node</label>
+        <select id="node"></select>
+      </div>
+      <div class="row">
+        <div>
+          <label for="kind">Source</label>
+          <select id="kind">
+            <option value="analytic">Registered analytic</option>
+            <option value="sql">Ad-hoc SQL</option>
+          </select>
+        </div>
+        <div id="analyticWrap">
+          <label for="analytic">Analytic</label>
+          <select id="analytic"></select>
+        </div>
+      </div>
+      <div id="sqlWrap" class="hidden">
+        <label for="sql">SQL</label>
+        <textarea id="sql" placeholder="SELECT product, SUM(amount) AS total FROM sales GROUP BY product"></textarea>
+      </div>
+      <details id="assistWrap">
+        <summary>NL → SQL assist (optional)</summary>
+        <p class="muted">Proposes sandboxed SQL from a question. Nothing runs until you confirm.</p>
+        <label for="question">Question</label>
+        <textarea id="question" placeholder="Which product sold the most?"></textarea>
+        <p id="proposeStatus" class="muted">Assist never auto-executes SQL.</p>
+      </details>
+      <div class="actions">
+        <button id="runBtn" type="button">Run</button>
+        <button id="proposeBtn" class="secondary" type="button">Propose SQL</button>
+        <button id="confirmSqlBtn" class="ghost" type="button" disabled>Confirm and run proposed SQL</button>
+      </div>
+      <p id="runStatus" class="muted"></p>
+    </section>
 
-  <section>
-    <h2>Receipt</h2>
-    <pre id="receipt">{}</pre>
-  </section>
+    <section id="resultPanel" class="citizen">
+      <div class="section-head"><h2>Result</h2></div>
+      <p id="resultMeta" class="muted">Nothing run yet.</p>
+      <div id="chartPreview" class="hidden" aria-live="polite"></div>
+      <div class="scroll"><table id="resultTable"></table></div>
+      <p><a id="downloadLink" class="hidden" href="#">Download Parquet artifact</a></p>
+      <button id="assistBtn" class="secondary" type="button" disabled>Explain result (optional assist)</button>
+      <p id="assistStatus" class="muted">Explain uses the auxiliary model when configured. Core runs never call a model.</p>
+    </section>
+
+    <section id="receiptPanel" class="citizen">
+      <div class="section-head"><h2>Receipt</h2></div>
+      <div id="receiptSummary" class="empty">No receipt yet. Run a query or analytic to see a summary here.</div>
+      <div class="actions">
+        <button id="copyReceiptBtn" class="secondary" type="button" disabled>Copy receipt id</button>
+        <button id="verifyChainBtn" class="ghost" type="button">Verify chain</button>
+      </div>
+      <p id="chainStatus" class="muted"></p>
+      <details class="raw">
+        <summary>Raw JSON</summary>
+        <pre id="receipt">{}</pre>
+      </details>
+    </section>
+  </div>
 
   <script>
-    const state = { kind: "unknown", nodeId: null, last: null, proposed: null };
+    const MAX_BARS = 24;
+    const THEME_KEY = "mesh-theme";
+    const PRINCIPAL_KEY = "mesh-principal";
+    const state = { kind: "unknown", nodeId: null, last: null, proposed: null, receipt: null };
 
     const $ = (id) => document.getElementById(id);
 
+    function esc(value) {
+      return String(value == null ? "" : value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function currentPrincipal() {
+      const value = $("principal").value.trim();
+      return value || "web";
+    }
+
+    function persistPrincipal() {
+      try { localStorage.setItem(PRINCIPAL_KEY, currentPrincipal()); } catch { /* ignore */ }
+    }
+
     function setStatus(el, text, cls) {
       el.className = "muted " + (cls || "");
+      el.textContent = text || "";
+    }
+
+    function showBanner(text, cls) {
+      const el = $("pageBanner");
+      if (!text) {
+        el.className = "banner hidden";
+        el.textContent = "";
+        return;
+      }
+      el.className = "banner " + (cls || "info");
       el.textContent = text;
+    }
+
+    function formatError(body, fallback) {
+      const detail = body && body.detail;
+      if (typeof detail === "string" && detail) return detail;
+      if (detail && typeof detail === "object") {
+        return detail.message || detail.error || fallback;
+      }
+      return fallback;
     }
 
     async function api(path, options) {
@@ -157,15 +434,178 @@
       let body = null;
       try { body = text ? JSON.parse(text) : null; } catch { body = { detail: text }; }
       if (!response.ok) {
-        const detail = body && body.detail;
-        const message = typeof detail === "string" ? detail : (detail && detail.message) || response.statusText;
-        throw new Error(message);
+        const error = new Error(formatError(body, response.statusText || "Request failed"));
+        error.status = response.status;
+        error.body = body;
+        throw error;
       }
       return body;
     }
 
     function currentNode() {
       return $("node").value || state.nodeId;
+    }
+
+    function isMissing(value) {
+      if (value == null || (typeof value === "string" && value.trim() === "")) return true;
+      if (typeof value === "number" && !Number.isFinite(value)) return true;
+      return false;
+    }
+
+    function asNumber(value) {
+      if (isMissing(value) || typeof value === "boolean") return null;
+      if (typeof value === "number") return Number.isFinite(value) ? value : null;
+      if (typeof value === "string") {
+        const number = Number(value.trim());
+        return Number.isFinite(number) ? number : null;
+      }
+      return null;
+    }
+
+    function columnKind(rows, column) {
+      let saw = false;
+      for (const row of rows) {
+        const value = row[column];
+        if (isMissing(value)) continue;
+        saw = true;
+        if (asNumber(value) == null) return "label";
+      }
+      return saw ? "numeric" : "empty";
+    }
+
+    function pickBarChart(preview, maxBars) {
+      const limit = maxBars == null ? MAX_BARS : maxBars;
+      if (!preview || !preview.columns || !preview.rows || !preview.rows.length) return null;
+      let labelColumn = null;
+      let valueColumn = null;
+      for (const column of preview.columns) {
+        const kind = columnKind(preview.rows, column);
+        if (!labelColumn && kind === "label") labelColumn = column;
+        if (!valueColumn && kind === "numeric") valueColumn = column;
+      }
+      if (!labelColumn || !valueColumn) return null;
+      const labels = [];
+      const values = [];
+      for (const row of preview.rows) {
+        const label = row[labelColumn];
+        const number = asNumber(row[valueColumn]);
+        if (isMissing(label) || number == null) continue;
+        labels.push(String(label));
+        values.push(number);
+      }
+      if (!labels.length || labels.length > limit) return null;
+      return { label_column: labelColumn, value_column: valueColumn, labels: labels, values: values };
+    }
+
+    function renderChart(preview) {
+      const host = $("chartPreview");
+      const series = pickBarChart(preview);
+      host.innerHTML = "";
+      if (!series) {
+        host.classList.add("hidden");
+        return;
+      }
+      const width = 420;
+      const height = 176;
+      const pad = { t: 10, r: 8, b: 36, l: 8 };
+      const max = Math.max.apply(null, series.values.concat([0]));
+      const span = max === 0 ? 1 : max;
+      const innerW = width - pad.l - pad.r;
+      const innerH = height - pad.t - pad.b;
+      const n = series.values.length;
+      const gap = 8;
+      const barW = Math.max(10, (innerW - gap * (n + 1)) / n);
+      let svg = '<svg viewBox="0 0 ' + width + " " + height + '" role="img" aria-label="' +
+        esc(series.value_column) + " by " + esc(series.label_column) + '">';
+      series.values.forEach(function (value, index) {
+        const h = Math.max(2, (value / span) * innerH);
+        const x = pad.l + gap + index * (barW + gap);
+        const y = pad.t + innerH - h;
+        svg += '<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + barW.toFixed(1) +
+          '" height="' + h.toFixed(1) + '" rx="3" fill="var(--accent)"></rect>';
+        const label = series.labels[index];
+        const shown = label.length > 10 ? label.slice(0, 9) + "…" : label;
+        svg += '<text x="' + (x + barW / 2).toFixed(1) + '" y="' + (height - 12) +
+          '" text-anchor="middle" font-size="10">' + esc(shown) + "</text>";
+      });
+      svg += "</svg>";
+      host.innerHTML = svg + '<p class="chart-caption muted">' + esc(series.value_column) +
+        " by " + esc(series.label_column) + "</p>";
+      host.classList.remove("hidden");
+    }
+
+    function renderTable(preview) {
+      const table = $("resultTable");
+      table.innerHTML = "";
+      if (!preview || !preview.columns) return;
+      const head = document.createElement("thead");
+      const hr = document.createElement("tr");
+      for (const col of preview.columns) {
+        const th = document.createElement("th");
+        th.textContent = col;
+        hr.appendChild(th);
+      }
+      head.appendChild(hr);
+      table.appendChild(head);
+      const body = document.createElement("tbody");
+      for (const row of preview.rows || []) {
+        const tr = document.createElement("tr");
+        for (const col of preview.columns) {
+          const td = document.createElement("td");
+          const value = row[col];
+          td.textContent = value == null ? "" : String(value);
+          tr.appendChild(td);
+        }
+        body.appendChild(tr);
+      }
+      table.appendChild(body);
+    }
+
+    function renderReceipt(receipt) {
+      state.receipt = receipt || null;
+      const summary = $("receiptSummary");
+      const raw = $("receipt");
+      if (!receipt) {
+        summary.className = "empty";
+        summary.textContent = "No receipt yet. Run a query or analytic to see a summary here.";
+        raw.textContent = "{}";
+        $("copyReceiptBtn").disabled = true;
+        return;
+      }
+      $("copyReceiptBtn").disabled = false;
+      const statusCls = receipt.status === "succeeded" ? "ok" : "err";
+      summary.className = "";
+      summary.innerHTML =
+        '<dl class="kv">' +
+        "<dt>Status</dt><dd><span class=\"badge " + statusCls + "\">" + esc(receipt.status) + "</span></dd>" +
+        "<dt>Receipt</dt><dd class=\"mono\">" + esc(receipt.receipt_id) + "</dd>" +
+        "<dt>Principal</dt><dd>" + esc(receipt.principal) + "</dd>" +
+        "<dt>Action</dt><dd>" + esc(receipt.action) + "</dd>" +
+        "<dt>Node</dt><dd>" + esc(receipt.node_id) + "</dd>" +
+        "<dt>Time</dt><dd>" + esc(receipt.ts || "") + "</dd>" +
+        (receipt.artifact_id ? "<dt>Artifact</dt><dd class=\"mono\">" + esc(receipt.artifact_id) + "</dd>" : "") +
+        (receipt.engine_version ? "<dt>Engine</dt><dd>" + esc(receipt.engine_version) + "</dd>" : "") +
+        (receipt.model_id ? "<dt>Model</dt><dd>" + esc(receipt.model_provider + " / " + receipt.model_id) + "</dd>" : "") +
+        (receipt.error ? "<dt>Error</dt><dd class=\"status err\">" + esc(receipt.error) + "</dd>" : "") +
+        "</dl>";
+      raw.textContent = JSON.stringify(receipt, null, 2);
+    }
+
+    function showPreview(preview, metaText, cls) {
+      renderTable(preview);
+      renderChart(preview);
+      setStatus($("resultMeta"), metaText, cls);
+    }
+
+    function setDownload(href) {
+      const link = $("downloadLink");
+      if (href) {
+        link.href = href;
+        link.classList.remove("hidden");
+      } else {
+        link.removeAttribute("href");
+        link.classList.add("hidden");
+      }
     }
 
     async function loadNodes() {
@@ -204,9 +644,16 @@
         opt.textContent = item.analytic_id + " @" + item.version + (item.description ? " — " + item.description : "");
         select.appendChild(opt);
       }
+      if (!select.options.length) {
+        const opt = document.createElement("option");
+        opt.value = "";
+        opt.textContent = "No analytics registered";
+        select.appendChild(opt);
+      }
     }
 
     async function loadModels() {
+      const el = $("modelsStatus");
       try {
         let data;
         if (state.kind === "plane") {
@@ -217,92 +664,192 @@
           data = await api("/models");
         }
         if (!data.configured) {
-          $("modelsStatus").textContent = "No LLM configured. Analytics still work.";
+          el.className = "banner info";
+          el.textContent = "No LLM configured. Analytics still work.";
         } else {
-          $("modelsStatus").textContent = "Optional model: " + data.main.provider + " / " + data.main.model + " (NL→SQL propose only; confirm before run)";
+          el.className = "banner info";
+          el.textContent = "Optional model: " + data.main.provider + " / " + data.main.model +
+            " (NL→SQL propose only; confirm before run)";
         }
       } catch (err) {
-        $("modelsStatus").textContent = "Model status unavailable: " + err.message;
+        el.className = "banner warn";
+        el.textContent = "Model status unavailable: " + err.message;
       }
     }
 
-    function renderTable(preview) {
-      const table = $("resultTable");
-      table.innerHTML = "";
-      if (!preview || !preview.columns) return;
-      const head = document.createElement("thead");
-      const hr = document.createElement("tr");
-      for (const col of preview.columns) {
-        const th = document.createElement("th");
-        th.textContent = col;
-        hr.appendChild(th);
-      }
-      head.appendChild(hr);
-      table.appendChild(head);
-      const body = document.createElement("tbody");
-      for (const row of preview.rows || []) {
-        const tr = document.createElement("tr");
-        for (const col of preview.columns) {
-          const td = document.createElement("td");
-          const value = row[col];
-          td.textContent = value == null ? "" : String(value);
-          tr.appendChild(td);
+    async function loadConnectors() {
+      const status = $("connectorsStatus");
+      const list = $("connectorsList");
+      status.textContent = "Loading connectors…";
+      list.innerHTML = "";
+      try {
+        let data;
+        if (state.kind === "plane") {
+          const nodeId = currentNode();
+          if (!nodeId) {
+            status.textContent = "Pick a registered node to see its connectors.";
+            return;
+          }
+          data = await api("/nodes/" + encodeURIComponent(nodeId) + "/connectors");
+        } else {
+          data = await api("/connectors");
         }
-        body.appendChild(tr);
+        const connectors = data.connectors || [];
+        if (!connectors.length) {
+          status.textContent = "No connectors discovered.";
+          return;
+        }
+        status.textContent = connectors.length + " connector" + (connectors.length === 1 ? "" : "s");
+        for (const connector of connectors) {
+          const tables = (connector.tables || []).map(function (table) { return table.name; }).filter(Boolean);
+          const div = document.createElement("div");
+          div.className = "chip";
+          div.innerHTML = "<strong>" + esc(connector.id) + "</strong>" +
+            '<span class="muted">' + esc(connector.version || "") +
+            (connector.sensitivity_labels && connector.sensitivity_labels.length ? " · " + connector.sensitivity_labels.join(", ") : "") +
+            "</span>" +
+            '<div class="tables">' + (tables.length ? tables.join(", ") : "No tables") + "</div>";
+          list.appendChild(div);
+        }
+      } catch (err) {
+        status.textContent = "";
+        setStatus(status, "Could not load connectors: " + err.message, "status err");
       }
-      table.appendChild(body);
+    }
+
+    function jobLink(job) {
+      if (job.status === "succeeded" && job.job_id) {
+        return '<a href="#job=' + encodeURIComponent(job.job_id) + '">Open result</a>';
+      }
+      return "<span class=\"muted\">—</span>";
+    }
+
+    async function loadJobs() {
+      if (state.kind !== "plane") {
+        $("jobsPanel").classList.add("hidden");
+        return;
+      }
+      $("jobsPanel").classList.remove("hidden");
+      const status = $("jobsStatus");
+      const table = $("jobsTable");
+      status.textContent = "Loading jobs…";
+      table.innerHTML = "";
+      try {
+        const data = await api("/jobs");
+        const jobs = data.jobs || [];
+        if (!jobs.length) {
+          status.textContent = "No jobs yet. Run something against a node.";
+          return;
+        }
+        status.textContent = jobs.length + " recent job" + (jobs.length === 1 ? "" : "s");
+        const head = "<thead><tr><th>Status</th><th>Action</th><th>Node</th><th>When</th><th></th></tr></thead>";
+        const rows = jobs.map(function (job) {
+          const when = (job.updated_at || job.created_at || "").replace("T", " ").replace("Z", "");
+          return "<tr><td><span class=\"badge " + esc(job.status) + "\">" + esc(job.status) +
+            "</span></td><td>" + esc(job.action) + "</td><td>" + esc(job.node_id) +
+            "</td><td class=\"muted\">" + esc(when) + "</td><td>" + jobLink(job) + "</td></tr>";
+        }).join("");
+        table.innerHTML = head + "<tbody>" + rows + "</tbody>";
+      } catch (err) {
+        setStatus(status, "Could not load jobs: " + err.message, "status err");
+      }
+    }
+
+    async function openJob(jobId) {
+      if (!jobId) return;
+      setStatus($("resultMeta"), "Loading job…");
+      $("assistBtn").disabled = true;
+      try {
+        const job = await api("/jobs/" + encodeURIComponent(jobId));
+        let preview = null;
+        let receipt = null;
+        if (job.artifact_id) {
+          try { preview = await api("/jobs/" + encodeURIComponent(jobId) + "/preview"); } catch { preview = null; }
+        }
+        if (job.receipt_id) {
+          try { receipt = await api("/receipts/" + encodeURIComponent(job.receipt_id)); } catch { receipt = null; }
+        }
+        state.last = { job: job, artifact: job.artifact_id ? { artifact_id: job.artifact_id } : null, receipt: receipt, preview: preview };
+        const rows = preview ? preview.row_count : null;
+        const label = (rows == null ? "Job " + job.status : rows + " rows") + " · job " + job.job_id;
+        showPreview(preview, label, job.status === "succeeded" ? "status ok" : "status err");
+        renderReceipt(receipt);
+        setDownload(job.artifact_id ? "/jobs/" + encodeURIComponent(job.job_id) + "/result" : null);
+        $("assistBtn").disabled = !job.artifact_id;
+        if (job.status !== "succeeded") {
+          setStatus($("runStatus"), job.error || ("Job " + job.status), "status err");
+        } else {
+          setStatus($("runStatus"), "Loaded job " + job.job_id + ".", "status ok");
+        }
+      } catch (err) {
+        setStatus($("resultMeta"), "Could not open job: " + err.message, "status err");
+        showBanner(err.message, "err");
+      }
     }
 
     async function run(assistOverride) {
+      showBanner("");
       setStatus($("runStatus"), "Running…");
+      setStatus($("resultMeta"), "Waiting for the node…");
       $("assistBtn").disabled = true;
+      $("runBtn").disabled = true;
       try {
         const kind = $("kind").value;
         let body;
         if (kind === "analytic" && !assistOverride) {
-          const payload = { analytic_id: $("analytic").value, principal: "web" };
+          const analyticId = $("analytic").value;
+          if (!analyticId) throw new Error("Choose a registered analytic first.");
+          const payload = { analytic_id: analyticId, principal: currentPrincipal() };
           if (state.kind === "plane") payload.node_id = currentNode();
+          if (state.kind === "plane" && !payload.node_id) throw new Error("Pick a registered node first.");
           body = await api("/analytics/run", {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify(payload),
           });
         } else {
-          const payload = { sql: (assistOverride && assistOverride.sql) || $("sql").value, principal: "web" };
+          const sql = (assistOverride && assistOverride.sql) || $("sql").value;
+          if (!sql || !sql.trim()) throw new Error("Enter SQL, or propose it from a question first.");
+          const payload = { sql: sql, principal: currentPrincipal() };
           if (assistOverride) {
             payload.assist_model_provider = assistOverride.assist_model_provider;
             payload.assist_model_id = assistOverride.assist_model_id;
           }
           if (state.kind === "plane") payload.node_id = currentNode();
+          if (state.kind === "plane" && !payload.node_id) throw new Error("Pick a registered node first.");
           body = await api("/query", {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify(payload),
           });
         }
+        persistPrincipal();
         state.last = body;
         const artifact = body.artifact;
         const receipt = body.receipt;
-        renderTable(body.preview);
-        $("receipt").textContent = JSON.stringify(receipt, null, 2);
         const rows = body.preview ? body.preview.row_count : (artifact && artifact.row_count);
-        setStatus($("resultMeta"), (rows == null ? "Done." : rows + " rows") + (receipt ? " · receipt " + receipt.receipt_id : ""), "status ok");
-        const link = $("downloadLink");
+        showPreview(
+          body.preview,
+          (rows == null ? "Done." : rows + " rows") + (receipt ? " · receipt " + receipt.receipt_id : ""),
+          "status ok"
+        );
+        renderReceipt(receipt);
         if (artifact) {
-          if (body.job) {
-            link.href = "/jobs/" + body.job.job_id + "/result";
-          } else {
-            link.href = "/results/" + artifact.artifact_id;
-          }
-          link.classList.remove("hidden");
+          setDownload(body.job ? "/jobs/" + body.job.job_id + "/result" : "/results/" + artifact.artifact_id);
         } else {
-          link.classList.add("hidden");
+          setDownload(null);
         }
-        $("assistBtn").disabled = false;
+        $("assistBtn").disabled = !artifact;
         setStatus($("runStatus"), "Succeeded.", "status ok");
+        if (state.kind === "plane") await loadJobs();
       } catch (err) {
+        const detail = err.body && err.body.detail;
+        if (detail && detail.receipt) renderReceipt(detail.receipt);
         setStatus($("runStatus"), err.message, "status err");
-        setStatus($("resultMeta"), "Run failed.", "status err");
+        setStatus($("resultMeta"), "Run failed. " + err.message, "status err");
+        showBanner(err.message, "err");
+      } finally {
+        $("runBtn").disabled = false;
       }
     }
 
@@ -316,9 +863,10 @@
       state.proposed = null;
       setStatus($("proposeStatus"), "Proposing SQL (not running)…");
       try {
-        const payload = { question, principal: "web" };
+        const payload = { question: question, principal: currentPrincipal() };
         let path = "/assist/nl2sql";
         if (state.kind === "plane") {
+          if (!currentNode()) throw new Error("Pick a registered node first.");
           path = "/nodes/" + encodeURIComponent(currentNode()) + "/assist/nl2sql";
         }
         const body = await api(path, {
@@ -326,6 +874,7 @@
           headers: { "content-type": "application/json" },
           body: JSON.stringify(payload),
         });
+        persistPrincipal();
         if (!body.used || !body.sql) {
           setStatus($("proposeStatus"), body.message || "No model configured; SQL was not proposed.", "status err");
           return;
@@ -336,7 +885,9 @@
         $("sqlWrap").classList.remove("hidden");
         $("sql").value = body.sql;
         $("confirmSqlBtn").disabled = false;
-        setStatus($("proposeStatus"), "Proposed SQL only. Review it, then confirm to run. Model: " + body.model_provider + " / " + body.model_id, "status ok");
+        $("assistWrap").open = true;
+        setStatus($("proposeStatus"), "Proposed SQL only. Review it, then confirm to run. Model: " +
+          body.model_provider + " / " + body.model_id, "status ok");
       } catch (err) {
         setStatus($("proposeStatus"), err.message, "status err");
       }
@@ -361,8 +912,9 @@
         setStatus($("assistStatus"), "Run a query first.", "status err");
         return;
       }
+      setStatus($("assistStatus"), "Explaining preview…");
       try {
-        const payload = { artifact_id: state.last.artifact.artifact_id, principal: "web" };
+        const payload = { artifact_id: state.last.artifact.artifact_id, principal: currentPrincipal() };
         let path = "/assist/explain";
         if (state.kind === "plane") {
           path = "/nodes/" + encodeURIComponent(currentNode()) + "/assist/explain";
@@ -372,6 +924,7 @@
           headers: { "content-type": "application/json" },
           body: JSON.stringify(payload),
         });
+        persistPrincipal();
         if (!body.used) {
           setStatus($("assistStatus"), body.message || "No model configured; receipt left model fields empty.");
         } else {
@@ -382,21 +935,96 @@
       }
     }
 
-    $("kind").addEventListener("change", () => {
+    async function copyReceiptId() {
+      if (!state.receipt || !state.receipt.receipt_id) return;
+      const id = state.receipt.receipt_id;
+      try {
+        await navigator.clipboard.writeText(id);
+        setStatus($("chainStatus"), "Copied receipt id " + id + ".", "status ok");
+      } catch {
+        setStatus($("chainStatus"), "Could not copy automatically. Select the id from the summary.", "status err");
+      }
+    }
+
+    async function verifyChain() {
+      setStatus($("chainStatus"), "Verifying hash chain…");
+      try {
+        let path = "/receipts/chain";
+        if (state.kind === "plane") {
+          const nodeId = (state.receipt && state.receipt.node_id) || currentNode();
+          if (!nodeId) throw new Error("Pick a registered node first.");
+          path = "/nodes/" + encodeURIComponent(nodeId) + "/receipts/chain";
+        }
+        const body = await api(path);
+        if (body.valid) {
+          setStatus(
+            $("chainStatus"),
+            "Chain valid · " + body.count + " receipt" + (body.count === 1 ? "" : "s") +
+              (body.head_hash ? " · head " + String(body.head_hash).slice(0, 12) + "…" : ""),
+            "status ok"
+          );
+        } else {
+          setStatus($("chainStatus"), body.error || "Chain verification failed.", "status err");
+        }
+      } catch (err) {
+        setStatus($("chainStatus"), err.message, "status err");
+      }
+    }
+
+    function applyTheme(mode) {
+      const root = document.documentElement;
+      if (mode === "light" || mode === "dark") root.setAttribute("data-theme", mode);
+      else {
+        root.removeAttribute("data-theme");
+        mode = "auto";
+      }
+      $("themeToggle").textContent = "Theme: " + (mode === "auto" ? "Auto" : mode === "dark" ? "Dark" : "Light");
+      try { localStorage.setItem(THEME_KEY, mode); } catch { /* ignore */ }
+    }
+
+    function nextTheme(current) {
+      if (current === "auto") return "light";
+      if (current === "light") return "dark";
+      return "auto";
+    }
+
+    function storedTheme() {
+      try { return localStorage.getItem(THEME_KEY) || "auto"; } catch { return "auto"; }
+    }
+
+    $("kind").addEventListener("change", function () {
       const analytic = $("kind").value === "analytic";
       $("analyticWrap").classList.toggle("hidden", !analytic);
       $("sqlWrap").classList.toggle("hidden", analytic);
     });
-    $("node").addEventListener("change", async () => {
+    $("node").addEventListener("change", async function () {
       await loadAnalytics();
       await loadModels();
+      await loadConnectors();
     });
-    $("runBtn").addEventListener("click", () => run());
+    $("runBtn").addEventListener("click", function () { run(); });
     $("proposeBtn").addEventListener("click", proposeSql);
     $("confirmSqlBtn").addEventListener("click", confirmProposedSql);
     $("assistBtn").addEventListener("click", explain);
+    $("copyReceiptBtn").addEventListener("click", copyReceiptId);
+    $("verifyChainBtn").addEventListener("click", verifyChain);
+    $("refreshConnectors").addEventListener("click", loadConnectors);
+    $("refreshJobs").addEventListener("click", loadJobs);
+    $("principal").addEventListener("change", persistPrincipal);
+    $("themeToggle").addEventListener("click", function () {
+      applyTheme(nextTheme(storedTheme()));
+    });
+    window.addEventListener("hashchange", function () {
+      const match = location.hash.match(/^#job=(.+)$/);
+      if (match) openJob(decodeURIComponent(match[1]));
+    });
 
     (async function init() {
+      applyTheme(storedTheme());
+      try {
+        const storedPrincipal = localStorage.getItem(PRINCIPAL_KEY);
+        if (storedPrincipal) $("principal").value = storedPrincipal;
+      } catch { /* ignore */ }
       try {
         const health = await api("/health");
         if (health.plane_id) {
@@ -404,6 +1032,7 @@
           $("modeLabel").textContent = "Control plane " + health.plane_id + " — pick a registered node.";
           $("nodeWrap").classList.remove("hidden");
           await loadNodes();
+          await loadJobs();
         } else {
           state.kind = "node";
           state.nodeId = health.node_id;
@@ -411,8 +1040,13 @@
         }
         await loadAnalytics();
         await loadModels();
+        await loadConnectors();
+        const match = location.hash.match(/^#job=(.+)$/);
+        if (match && state.kind === "plane") await openJob(decodeURIComponent(match[1]));
       } catch (err) {
         $("modeLabel").textContent = "Could not reach API: " + err.message;
+        showBanner("The API did not respond. Check that this page is served by mesh node or plane.", "err");
+        setStatus($("connectorsStatus"), "Connectors unavailable.", "status err");
       }
     })();
   </script>

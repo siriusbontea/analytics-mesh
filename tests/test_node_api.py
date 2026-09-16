@@ -191,9 +191,23 @@ def test_ui_is_served(tmp_path: Path, data_dir: Path):
         response = client.get(path)
         assert response.status_code == 200
         assert "text/html" in response.headers["content-type"]
-        assert "Analytics Mesh" in response.text
-        assert "analytic" in response.text.lower()
-        assert "confirm and run proposed sql" in response.text.lower()
+        html = response.text
+        assert "Analytics Mesh" in html
+        assert "analytic" in html.lower()
+        assert "confirm and run proposed sql" in html.lower()
+        assert 'id="principal"' in html
+        assert 'id="themeToggle"' in html
+        assert "prefers-color-scheme" in html
+        assert 'id="connectorsPanel"' in html
+        assert 'id="jobsPanel"' in html
+        assert 'id="chartPreview"' in html
+        assert "pickBarChart" in html
+        assert "verify chain" in html.lower()
+        assert "copy" in html.lower()
+        assert "chart.js" not in html.lower()
+        assert "d3.js" not in html.lower()
+        assert "react" not in html.lower()
+        assert "vue" not in html.lower()
 
 
 def test_bad_sql_writes_failed_receipt(tmp_path: Path, data_dir: Path):
