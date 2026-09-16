@@ -2,7 +2,7 @@
 
 Query-first local analytics. Point a node at a directory of CSV, Parquet, or JSON files, run sandboxed DuckDB SQL, and get a Parquet artifact plus a hash-chained receipt. No LLM is required.
 
-M1 is a **single node** on one machine. M2 adds a thin **control plane** that registers nodes and routes `run_query` to a target node. The plane stores job metadata and pointers only — not source tables. M3 adds a **versioned analytic registry**, a **minimal web UI**, and optional **OpenAI-compatible model config**. M4 adds **YAML policy allowlists**, **artifact retention/size caps**, a **read-only Postgres connector**, and optional **NL→SQL assist** that never auto-executes. M5 completes v1: an **analytics-only MCP adapter**, an optional **Polars engine**, and a **main → fallback** assist chain recorded on receipts. M6 polishes that same **single-file `/ui`**: dark/light theme, connectors and plane jobs, receipt verify/copy, an editable principal, and a light SVG bar chart on suitable previews. M7 adds an in-page **Help drawer** and accessible **tooltips** so you can learn the tool without leaving `/ui`. Analytics still work with **zero** LLM configured.
+M1 is a **single node** on one machine. M2 adds a thin **control plane** that registers nodes and routes `run_query` to a target node. The plane stores job metadata and pointers only — not source tables. M3 adds a **versioned analytic registry**, a **minimal web UI**, and optional **OpenAI-compatible model config**. M4 adds **YAML policy allowlists**, **artifact retention/size caps**, a **read-only Postgres connector**, and optional **NL→SQL assist** that never auto-executes. M5 completes v1: an **analytics-only MCP adapter**, an optional **Polars engine**, and a **main → fallback** assist chain recorded on receipts. M6 polishes that same **single-file `/ui`**: dark/light theme, connectors and plane jobs, receipt verify/copy, an editable principal, and a light SVG bar chart on suitable previews. M7 adds an in-page **Help drawer** and accessible **tooltips** so you can learn the tool without leaving `/ui`. M8 fixes **`mesh receipt --verify-chain` against a direct node**, adds **GitHub Actions CI**, and ships **`scripts/deep-smoke.sh`**. Analytics still work with **zero** LLM configured.
 
 ## Requirements
 
@@ -107,6 +107,15 @@ uv sync --group dev
 uv run pytest
 ```
 
+Pull requests and pushes to `main` run that same gate in GitHub Actions (Python 3.12 + `uv`). After `mesh serve`, or hermetically with `--start`, a deeper post-serve check is:
+
+```bash
+./scripts/deep-smoke.sh          # assumes http://127.0.0.1:8080
+./scripts/deep-smoke.sh --start  # temp node on an ephemeral port
+```
+
+`pytest` is the required CI gate. `deep-smoke` is an optional workflow job (`continue-on-error`) that starts its own temp node.
+
 ## Layout
 
 ```
@@ -124,6 +133,8 @@ configs/examples/         node.yaml, policy.yaml, models.yaml, node-postgres.yam
 deploy/systemd/           mesh-node / mesh-plane / mesh-mcp unit files
 docker-compose.yml        optional Postgres for the read-only connector
 scripts/two-node-demo.sh  localhost two-node walkthrough
+scripts/deep-smoke.sh     post-serve / hermetic checks (health, analytic, receipt chain, policy, assist, Help UI)
+.github/workflows/ci.yml  pytest on PR and main; optional deep-smoke
 tests/
 ```
 
@@ -294,6 +305,7 @@ M1–M5 together are v1: query where the data lives, return an artifact plus a v
 | M5 | MCP analytics toolset, optional Polars engine, fallback receipts |
 | M6 | Browser UI polish: theme, connectors/jobs, receipt helpers, SVG chart |
 | M7 | In-UI Help drawer and accessible tooltips |
+| M8 | Direct-node `--verify-chain`, GitHub Actions CI, `scripts/deep-smoke.sh` |
 
 ### MCP adapter (analytics toolset only)
 
@@ -385,6 +397,17 @@ The same `packages/mesh_common/src/mesh_common/static/ui.html` is still served a
 ## M7 — Help drawer and tooltips
 
 Still the same `ui.html`. **Help** in the topbar opens a right-side drawer (Close, Esc, or backdrop). Sections cover getting started, concepts, CLI vs UI, receipts, plane vs node, policy, and the analytics-only MCP tools. `#help` or `#help=<section>` deep-links into a section. Hover or focus a control (or its **?**) for a short tooltip: what it is, and what happens when you use it.
+
+## M8 — verify-chain, CI, deep smoke
+
+`mesh receipt <id> --verify-chain` looks at `/health` to decide which chain URL to call:
+
+| Target | `/health` | Chain path |
+| --- | --- | --- |
+| Direct node | `node_id` | `GET /receipts/chain` |
+| Control plane | `plane_id` | `GET /nodes/{id}/receipts/chain` |
+
+Receipts always include `node_id` (the owning node). Using that field as a plane path against `http://127.0.0.1:8080` 404s. After a successful `mesh analytics run top_products` on a node, `--verify-chain` exits 0 and prints `valid: true`.
 
 ## Docs
 

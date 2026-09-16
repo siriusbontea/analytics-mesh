@@ -7,9 +7,21 @@ from pathlib import Path
 import uvicorn
 from typer.testing import CliRunner
 
-from mesh_client.cli import app
+from mesh_client.cli import app, chain_path, target_kind_from_health
 from mesh_node.app import create_app
 from mesh_node.config import ConnectorConfig, LimitsConfig, NodeConfig
+
+
+def test_target_kind_from_health_distinguishes_node_and_plane():
+    assert target_kind_from_health({"status": "ok", "node_id": "local-dev"}) == "node"
+    assert target_kind_from_health({"status": "ok", "plane_id": "home-plane", "node_count": 2}) == "plane"
+
+
+def test_chain_path_uses_node_route_on_direct_node_even_when_receipt_has_node_id():
+    # Old bug: receipt.node_id caused GET /nodes/<id>/receipts/chain against a node (404).
+    assert chain_path(target="node", node=None, owning_node_id="cli-node") == "/receipts/chain"
+    assert chain_path(target="plane", node=None, owning_node_id="node-b") == "/nodes/node-b/receipts/chain"
+    assert chain_path(target="plane", node="node-a", owning_node_id="node-b") == "/nodes/node-a/receipts/chain"
 
 
 def test_cli_help():
@@ -79,9 +91,33 @@ def test_cli_query_and_receipt(tmp_path: Path, data_dir: Path):
         ran_body = json.loads(ran.stdout)
         assert ran_body["receipt"]["action"] == "run_analytic"
         assert ran_body["receipt"]["model_provider"] is None
+
+        analytic_receipt_id = ran_body["receipt"]["receipt_id"]
+        verified = runner.invoke(app, ["receipt", analytic_receipt_id, "--url", url, "--verify-chain"])
+        assert verified.exit_code == 0, verified.output
+        documents = _json_documents(verified.stdout)
+        assert documents[0]["receipt_id"] == analytic_receipt_id
+        chain = documents[-1]
+        assert chain["valid"] is True
+        assert chain["count"] >= 1
     finally:
         server.should_exit = True
         thread.join(timeout=5)
+
+
+def _json_documents(text: str) -> list[object]:
+    decoder = json.JSONDecoder()
+    documents: list[object] = []
+    idx = 0
+    stripped = text.lstrip()
+    while idx < len(stripped):
+        while idx < len(stripped) and stripped[idx].isspace():
+            idx += 1
+        if idx >= len(stripped):
+            break
+        doc, idx = decoder.raw_decode(stripped, idx)
+        documents.append(doc)
+    return documents
 
 
 def _start_server(server_app, host: str = "127.0.0.1") -> tuple[uvicorn.Server, threading.Thread, str]:
@@ -195,6 +231,12 @@ def test_cli_query_via_plane_targets_node_b(tmp_path: Path, sales_csv_text: str)
         assert receipt.exit_code == 0
         assert receipt_id in receipt.stdout
         assert "succeeded" in receipt.stdout
+
+        verified = runner.invoke(app, ["receipt", receipt_id, "--url", url_p, "--verify-chain"])
+        assert verified.exit_code == 0, verified.output
+        chain = _json_documents(verified.stdout)[-1]
+        assert chain["valid"] is True
+        assert chain["count"] >= 1
     finally:
         for server, thread in servers:
             server.should_exit = True
